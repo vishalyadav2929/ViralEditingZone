@@ -173,7 +173,8 @@ const gallery = mountGallery({
     const target = styleTarget();
     const L = target === 'text' && curText();
     if (L) {
-      patchText({ tpl: t.id });
+      Object.assign(L, withTpl(L, t));
+      renderTextUI(); timeline.render(); commit();
       S.textTpl = t.id;
       return toast(`“${t.name}” applied to your text. To style the captions instead, click an empty spot on the video first.`, 4500);
     }
@@ -184,7 +185,7 @@ const gallery = mountGallery({
       S.textTpl = t.id;
       gallery.select(t.id);
       if (texts().length) {
-        S.o.texts = texts().map(x => ({ ...x, tpl: t.id }));
+        S.o.texts = texts().map(x => ({ ...x, ...withTpl(x, t) }));
         commit(); renderTextUI(); timeline.render();
         return toast(`“${t.name}” applied to your text.`);
       }
@@ -660,6 +661,7 @@ function selectText(id, focus) {
 function patchText(p, save = true) {
   const L = curText(); if (!L) return;
   Object.assign(L, p);
+  if (L.tpl && !('tpl' in p)) for (const k of Object.keys(p)) if (TPL_LOOK[k]) L.ov = { ...(L.ov || {}), [TPL_LOOK[k]]: true };
   if (p.font && document.fonts) document.fonts.load(`700 40px '${p.font}'`, L.text || 'Aa').catch(() => {});
   renderTextUI(); timeline.render();
   if (save) commit();
@@ -671,6 +673,7 @@ function addText() {
   const last = texts()[texts().length - 1];
   const L = newLayer({ start: +start.toFixed(2), end: +end.toFixed(2), y: 0.22 + (texts().length % 5) * 0.12, tpl: S.textTpl || null,
     ...(last ? { font: last.font, color: last.color, bold: last.bold, stroke: last.stroke, strokeW: last.strokeW, bg: last.bg, bgOp: last.bgOp, size: last.size } : {}) });
+  if (S.textTpl) Object.assign(L, withTpl(L, TEMPLATES.find(x => x.id === S.textTpl)));
   S.o.texts = [...texts(), L];
   if (!video.paused) video.pause();
   commit();
@@ -680,7 +683,7 @@ function addText() {
 $('txtAdd').onclick = () => addText();
 $('txtAdd2').onclick = () => addText();
 $('txtTplPick').onclick = () => { showLTab('tpl'); toast('Pick a style for your text.'); };
-$('txtTplClear').onclick = () => { S.textTpl = null; patchText({ tpl: null }); };
+$('txtTplClear').onclick = () => { S.textTpl = null; patchText({ tpl: null, ov: {} }); };
 TEXT_ANIMS.forEach(([v, n]) => { const o = document.createElement('option'); o.value = v; o.textContent = n; $('txtAnim').appendChild(o); });
 $('txtAnim').onchange = e => patchText({ anim: e.target.value || null });
 $('txtAnimAll').onclick = () => {
@@ -772,6 +775,27 @@ function tplChunk(L, still) {
   }
   return c.chunk;
 }
+// A text wearing a template can still change its font, colours, weight, outline and box (like CapCut):
+// whatever the visitor changed (L.ov) replaces the template's value, for every word.
+const TPL_LOOK = { font: 'font', color: 'color', bold: 'weight', italic: 'weight', stroke: 'stroke', strokeW: 'stroke', bg: 'bg', bgOp: 'bg', shadow: 'shadow' };
+function tplFor(L, tp) {
+  const ov = L.ov || {}, r = { ...tp, ...(L.oneLine ? { oneLine: true, layout: null, lines: null } : {}) };
+  const drop = keys => { if (r.roles) r.roles = r.roles.map(x => { const y = { ...x }; for (const k of keys) delete y[k]; return y; }); if (r.emph) { r.emph = { ...r.emph }; for (const k of keys) delete r.emph[k]; } };
+  if (ov.font) { r.font = L.font; drop(['font']); }
+  if (ov.weight) { r.weight = L.bold ? 800 : 500; r.italic = !!L.italic; drop(['weight', 'italic']); }
+  if (ov.color) { r.color = L.color; r.gradient = null; r.glow = null; drop(['color', 'gradient', 'glow']); }
+  if (ov.stroke) { r.stroke = L.strokeW > 0 ? { w: L.strokeW, c: L.stroke } : null; r.stroke2 = null; drop(['stroke', 'stroke2']); }
+  if (ov.bg) r.bg = L.bgOp > 0 ? { c: hexA(L.bg, L.bgOp / 100), pad: 0.3, r: 0.18 } : null;
+  if (ov.shadow) r.shadow = L.shadow ? { c: 'rgba(0,0,0,.7)', b: 0.18, x: 0, y: 0.05 } : null;
+  return r;
+}
+/** The fields to set on a text when it takes a template: the template's look, shown in the controls. */
+function withTpl(L, t) {
+  if (!t) return { tpl: null, ov: {} };
+  const st = t.stroke || null;
+  return { tpl: t.id, ov: {}, font: t.font || L.font, bold: (t.weight || 700) >= 700, italic: !!t.italic, color: toHex(t.color || '#ffffff'),
+    stroke: toHex((st && st.c) || '#000000'), strokeW: st ? st.w : 0, bgOp: 0, shadow: !!t.shadow };
+}
 function drawTplText(c2, W, H, L, t, still) {
   const tp = TEMPLATES.find(x => x.id === L.tpl);
   const chunk = String(L.text).trim() && tplChunk(L, still);
@@ -779,14 +803,14 @@ function drawTplText(c2, W, H, L, t, still) {
   const scale = L.size / (tp.size * 1.6), px = tp.size * Math.min(W, H) * 1.6 * scale;
   c2.save();
   c2.translate((L.x - 0.5) * W, 0);
-  drawCaption(c2, W, H, chunk, still ? 1 : t, { ...tp, ...(L.oneLine ? { oneLine: true, layout: null, lines: null } : {}) }, { scale, pos: L.y });
+  drawCaption(c2, W, H, chunk, still ? 1 : t, tplFor(L, tp), { scale, pos: L.y });
   c2.restore();
   return { px, ...tplBox(L, tp, W, H, scale) };
 }
 // Where a template actually puts the text: drawn once off-screen (final state) and measured, then cached.
 const boxCache = new Map(), boxCanvas = document.createElement('canvas');
 function tplBox(L, tp, W, H, scale) {
-  const key = `${L.text}|${L.tpl}|${L.size}|${L.x}|${L.y}|${W}|${H}|${!!L.oneLine}`;
+  const key = `${L.text}|${L.tpl}|${L.size}|${L.x}|${L.y}|${W}|${H}|${!!L.oneLine}|${JSON.stringify(L.ov || {})}|${L.font}|${L.bold}|${L.italic}|${L.strokeW}|${L.bgOp}`;
   const hit = boxCache.get(L.id);
   if (hit && hit.key === key) return hit.box;
   const k = Math.min(1, 360 / Math.max(W, H)), w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
@@ -795,7 +819,7 @@ function tplBox(L, tp, W, H, scale) {
   c.clearRect(0, 0, w, h);
   const words = spreadWords(L.text.replace(/\s+/g, ' ').trim(), 0, 1), chunk = buildChunks(words, 999, 9999)[0];
   c.save(); c.translate((L.x - 0.5) * w, 0);
-  if (chunk) drawCaption(c, w, h, chunk, 1, { ...tp, ...(L.oneLine ? { oneLine: true, layout: null, lines: null } : {}) }, { scale, pos: L.y });
+  if (chunk) drawCaption(c, w, h, chunk, 1, tplFor(L, tp), { scale, pos: L.y });
   c.restore();
   const d = c.getImageData(0, 0, w, h).data;
   let x0 = w, y0 = h, x1 = -1, y1 = -1;

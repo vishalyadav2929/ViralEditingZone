@@ -1488,6 +1488,36 @@ await step('text templates: after styling captions from the Captions panel, a st
   await ctx.close();
 });
 
+await step('template text stays editable: font, colour, bold, outline and box change the drawn text (like CapCut)', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.setInputFiles('#startFile', join(FIX, 'photo.jpg'));
+  await m.waitForSelector('#editor:not([hidden])');
+  await m.fill('#txtText', 'hello dada');
+  await pickTpl(m, 'Red Wipe');
+  assert.equal(await m.evaluate(() => window.__vcz.S.o.texts[0].tpl), 'red-wipe');
+  assert.equal(await m.isEnabled('#txtFont'), true);
+  assert.equal(await m.inputValue('#txtFont'), 'Montserrat', 'controls show the template font');
+  // Count bright-green pixels on the preview: none before, many after colouring the text green.
+  const green = () => m.evaluate(() => { const c = document.getElementById('stage'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 60 && d[i + 1] > 200 && d[i + 2] < 60) n++; return n; });
+  const before = await green();
+  await m.click('#ltabText'); await m.locator('#txtList .txt-item').first().click();
+  await m.evaluate(() => { const el = document.getElementById('txtColor'); el.value = '#00ff00'; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
+  await m.selectOption('#txtFont', 'Bangers');
+  await m.waitForTimeout(400);
+  const after = await green();
+  assert.ok(after > before + 300, `green pixels ${before} → ${after}`);
+  assert.deepEqual(await m.evaluate(() => window.__vcz.S.o.texts[0].ov), { color: true, font: true });
+  assert.equal(await m.evaluate(() => window.__vcz.S.o.texts[0].tpl), 'red-wipe', 'still the template');
+  // Picking another template starts from its look again.
+  await pickTpl(m, 'Crazy');
+  assert.deepEqual(await m.evaluate(() => window.__vcz.S.o.texts[0].ov), {});
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();
