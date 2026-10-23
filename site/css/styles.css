@@ -816,7 +816,6 @@ body.studio .props .ptab { font-size: 13px; white-space: nowrap; padding: 10px 6
 .txt-tpl .row .btn { flex: 0 0 auto; }
 .tpl-note { display: none; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
 .txt-edit.has-tpl .tpl-note { display: block; }
-.txt-edit.has-tpl :is(.field:has(#txtFont), .txt-style .tgl, .row:has(#txtColor), .row:has(#txtStroke), .row:has(#txtBg)) { opacity: .4; pointer-events: none; }
 
 /* ----- word colours, one line, big preview ----- */
 .word-group .row { align-items: center; }
