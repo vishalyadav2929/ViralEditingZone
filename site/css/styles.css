@@ -1036,3 +1036,19 @@ body.design #ltabClips, body.design #tabCaptions, body.design #ltabSnd, body.des
 .ls-tips li { color: #fbbf24; }
 .ls-studio { text-align: center; }
 .clip-batch { display: grid; gap: 6px; margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+
+/* CapCut-style tracks: icon per track, text lanes, video filmstrip with trim handles */
+.tl-lab { position: sticky; left: 0; z-index: 3; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 4px; margin-top: 1px; border-radius: 5px; background: rgba(20,20,30,.85); color: #c9c9d6; font-size: 11px; font-weight: 800; pointer-events: none; }
+.tl-txt .tl-lab { position: sticky; }
+.tl-video { border-radius: 8px; overflow: visible; }
+.tl-film { position: absolute; left: 0; top: 0; height: 44px; border-radius: 8px; border: 1px solid #0e7490; box-sizing: border-box; }
+.tv-name { position: absolute; left: 30px; top: 3px; z-index: 2; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; white-space: nowrap; }
+.tl-video .tl-lab { position: absolute; left: 4px; top: 12px; }
+.tv-dim { position: absolute; top: 0; height: 44px; background: rgba(0,0,0,.6); pointer-events: none; z-index: 1; }
+.tv-dim.l { left: 0; }
+.tv-h { position: absolute; top: -2px; width: 10px; height: 48px; background: #fbbf24; border-radius: 4px; cursor: ew-resize; z-index: 3; touch-action: none; }
+.tv-h::after { content: ''; position: absolute; left: 4px; top: 16px; width: 2px; height: 14px; background: #111; border-radius: 1px; }
+.ttx .grip.l { left: 0; right: auto; }
+.ttx { padding-left: 12px; }
+.ttx-add { position: absolute; left: 30px; top: 0; height: 20px; border: 1px dashed #be185d; background: transparent; color: #f9a8d4; border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; cursor: pointer; }
+.tl-dock .tl-bar { position: sticky; top: 0; z-index: 6; background: inherit; }

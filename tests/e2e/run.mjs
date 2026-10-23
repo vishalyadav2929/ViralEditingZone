@@ -680,7 +680,7 @@ await step('timeline: words, captions and waveform; click jumps, double-click ed
   assert.equal(await m.evaluate(() => window.__vcz.S.o.pos), 0.78);
   // Click empty timeline: jump.
   const box = await m.locator('.tl-inner').boundingBox();
-  await m.mouse.click(box.x + 5, box.y + 110);
+  await m.mouse.click(box.x + 20, box.y + 10); // on the ruler (the video track starts with its trim handle)
   assert.ok(await m.evaluate(() => window.__vczVideo.currentTime) < 0.5);
   assert.deepEqual(errs, []);
   await ctx.close();
@@ -1514,6 +1514,39 @@ await step('template text stays editable: font, colour, bold, outline and box ch
   // Picking another template starts from its look again.
   await pickTpl(m, 'Crazy');
   assert.deepEqual(await m.evaluate(() => window.__vcz.S.o.texts[0].ov), {});
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
+await step('CapCut-style timeline: text lanes, video filmstrip, trim the video and the export follows', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  await m.addInitScript(() => { window.__vczFastCodecs = ['vp9']; });
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  assert.equal(await m.isVisible('.ttx-add'), true, 'empty text track offers + Add text');
+  await m.click('#ltabText'); await m.click('#txtAdd'); await m.fill('#txtText', 'one');
+  await m.click('#txtAdd'); await m.fill('#txtText', 'two');
+  const tops = await m.evaluate(() => [...document.querySelectorAll('.ttx')].map(b => b.style.top));
+  assert.equal(new Set(tops).size, 2, `overlapping texts on separate lanes: ${tops}`);
+  await m.waitForFunction(() => { const c = document.querySelector('.tl-film'); if (!c || c.width < 2) return false; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 40) if (d[i] + d[i + 1] + d[i + 2] > 200) n++; return n > 50; }, null, { timeout: 15000 });
+  // Trim from the right handle: drag it left by a third of the track.
+  const film = await m.locator('.tl-film').boundingBox();
+  const hr = await m.locator('.tv-h.r').boundingBox();
+  await m.mouse.move(hr.x + 5, hr.y + 10); await m.mouse.down();
+  await m.mouse.move(hr.x + 5 - film.width / 3, hr.y + 10, { steps: 5 }); await m.mouse.up();
+  const trim = await m.evaluate(() => window.__vcz.S.o.trim);
+  assert.ok(trim && trim.start === 0 && trim.end > 3 && trim.end < 4.6, JSON.stringify(trim));
+  const dl = m.waitForEvent('download', { timeout: 120000 });
+  await m.click('#exportBtn'); await m.waitForSelector('#xDlg[open]'); await m.click('#xGo');
+  const d = await dl; const file = join(OUT, `trim-${d.suggestedFilename()}`); await d.saveAs(file);
+  const dec = execFileSync('sh', ['-c', `ffmpeg -i "${file}" -f null - 2>&1 | grep -o 'time=[0-9:.]*' | tail -1`]).toString();
+  const [, , mm, sec] = dec.match(/time=(\d+):(\d+):([\d.]+)/);
+  const dur = +mm * 60 + +sec;
+  assert.ok(Math.abs(dur - trim.end) < 0.6, `export ${dur}s for trim ${trim.end}s`);
   assert.deepEqual(errs, []);
   await ctx.close();
 });

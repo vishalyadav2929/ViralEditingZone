@@ -27,6 +27,7 @@ export function mountTimeline(root, api) {
         <div class="tl-row tl-caps"></div>
         <div class="tl-row tl-txt"></div>
         <div class="tl-row tl-sfx"></div>
+        <div class="tl-row tl-video"><canvas class="tl-film" height="44"></canvas><span class="tv-name"></span><i class="tv-dim l"></i><i class="tv-dim r"></i><i class="tv-h l" title="Drag to trim the start"></i><i class="tv-h r" title="Drag to trim the end"></i></div>
         <canvas class="tl-wave" height="40"></canvas>
         <div class="tl-clip" hidden></div>
         <div class="tl-head"></div>
@@ -81,7 +82,7 @@ export function mountTimeline(root, api) {
 
   // Click on empty timeline → jump there.
   inner.addEventListener('click', e => {
-    if (e.target.closest('.tw, .tc, .ttx')) return;
+    if (e.target.closest('.tw, .tc, .ttx, .tv-h')) return;
     const x = e.clientX - inner.getBoundingClientRect().left;
     api.seek(Math.max(0, x / pps));
   });
@@ -159,31 +160,127 @@ export function mountTimeline(root, api) {
       sfxRow.appendChild(b);
     });
     renderTexts(dur);
+    renderVideo(dur, W);
     // The part of the video used by the short being edited.
     const clip = api.clip ? api.clip() : null, cb = root.querySelector('.tl-clip');
     cb.hidden = !clip;
     if (clip) { cb.style.left = `${clip.start * pps}px`; cb.style.width = `${(clip.end - clip.start) * pps}px`; }
     drawWave(W);
+    layout();
     syncPos();
     tick(api.time());
+  }
+
+  // Tracks stacked like CapCut (texts on top, then captions, sounds, the video and its audio), each
+  // with an icon at the left that stays in view while scrolling.
+  const videoRow = $('.tl-video'), film = $('.tl-film');
+  function label(row, icon, title) {
+    const l = document.createElement('span'); l.className = 'tl-lab'; l.textContent = icon; l.title = title; row.prepend(l);
+  }
+  function layout() {
+    const segs = api.segments().length > 0, txt = !txtRow.hidden, snd = sfxRow.children.length > 0;
+    let y = 22;
+    const place = (el, h, show = true) => { el.hidden = !show; if (!show) return; el.style.top = `${y}px`; el.style.height = `${h}px`; y += h + 4; };
+    place(txtRow, Math.max(1, txtRow._lanes || 1) * 24, true);
+    place(wordsRow, 22, segs); place(capsRow, 20, segs);
+    place(sfxRow, 18, snd);
+    place(videoRow, 46, !!api.duration());
+    wave.style.top = `${y}px`; y += 40;
+    inner.style.height = `${y + 4}px`;
+    [[txtRow, 'T', 'Text'], [wordsRow, 'Aa', 'Words'], [capsRow, '💬', 'Captions'], [sfxRow, '♪', 'Sounds']].forEach(([r, i, t]) => { if (!r.hidden && !r.querySelector('.tl-lab')) label(r, i, t); });
+  }
+
+  // Video track: a strip of frames from the video, with handles to trim its start and end.
+  let frames = [], framesFor = null, frameAspect = 9 / 16;
+  async function loadFrames(m) {
+    framesFor = m.url; frames = [];
+    const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = m.url; v.playsInline = true;
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; setTimeout(r, 8000); });
+    if (!v.videoWidth || framesFor !== m.url) return;
+    frameAspect = v.videoWidth / v.videoHeight;
+    const n = Math.min(60, Math.max(4, Math.ceil(m.dur / 2))), step = m.dur / n;
+    for (let i = 0; i < n && framesFor === m.url; i++) {
+      const t = Math.min(m.dur - 0.05, i * step + step / 2);
+      await new Promise(r => { v.onseeked = r; v.currentTime = t; setTimeout(r, 1500); });
+      const c = document.createElement('canvas'); c.height = 44; c.width = Math.round(44 * frameAspect);
+      try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch { /* not drawable */ }
+      frames.push({ t, c });
+      if (i % 6 === 5) drawFilm();
+    }
+    v.removeAttribute('src'); v.load();
+    drawFilm();
+  }
+  function drawFilm() {
+    const dur = api.duration() || 0, W = Math.ceil(dur * pps), w = Math.min(W, 16000);
+    film.width = Math.max(1, w); film.style.width = `${W}px`;
+    const x = film.getContext('2d');
+    x.fillStyle = '#1f2937'; x.fillRect(0, 0, w, 44);
+    if (!frames.length || !dur) return;
+    const tw = 44 * frameAspect * (w / W);
+    for (let px = 0; px < w; px += tw) {
+      const t = (px + tw / 2) / w * dur;
+      let best = frames[0];
+      for (const f of frames) if (Math.abs(f.t - t) < Math.abs(best.t - t)) best = f;
+      x.drawImage(best.c, px, 0, tw, 44);
+    }
+  }
+  function renderVideo(dur) {
+    const m = api.media ? api.media() : null;
+    if (!m || !dur) return;
+    if (m.url !== framesFor) loadFrames(m);
+    drawFilm();
+    if (!videoRow.querySelector('.tl-lab')) label(videoRow, '🎬', 'Video');
+    videoRow.querySelector('.tv-name').textContent = `${m.name} · ${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}`;
+    const tr = (api.trim && api.trim()) || { start: 0, end: dur };
+    const [dl, dr, hl, hr] = ['.tv-dim.l', '.tv-dim.r', '.tv-h.l', '.tv-h.r'].map(s => videoRow.querySelector(s));
+    dl.style.width = `${tr.start * pps}px`;
+    dr.style.left = `${tr.end * pps}px`; dr.style.width = `${Math.max(0, (dur - tr.end) * pps)}px`;
+    hl.style.left = `${tr.start * pps}px`; hr.style.left = `${tr.end * pps - 10}px`;
+    const drag = (h, which) => {
+      h.onpointerdown = e => {
+        e.stopPropagation(); h.setPointerCapture(e.pointerId);
+        const x0 = e.clientX, s0 = tr.start, e0 = tr.end;
+        h.onpointermove = ev => {
+          const dt = (ev.clientX - x0) / pps;
+          const s = which === 'l' ? Math.max(0, Math.min(e0 - 1, s0 + dt)) : s0, en = which === 'r' ? Math.min(dur, Math.max(s0 + 1, e0 + dt)) : e0;
+          api.setTrim(s, en, false); renderVideo(dur); api.seek(which === 'l' ? s : en);
+        };
+        h.onpointerup = () => { h.onpointermove = h.onpointerup = null; const t = api.trim() || { start: 0, end: dur }; api.setTrim(t.start, t.end, true); };
+      };
+    };
+    drag(hl, 'l'); drag(hr, 'r');
   }
 
   // Text layers: drag the block to move it in time, drag its right edge to change how long it shows.
   function renderTexts(dur) {
     txtRow.innerHTML = '';
     const list = api.texts ? api.texts() : [];
-    txtRow.hidden = !list.length;
-    inner.classList.toggle('has-txt', list.length > 0);
+    txtRow.hidden = false;
+    // Texts that overlap in time go on separate lanes, like layers in CapCut.
+    const ends = [], laneOf = new Map();
+    [...list].sort((a, b) => a.start - b.start).forEach(L => {
+      let k = ends.findIndex(e => e <= L.start + 0.01);
+      if (k < 0) { k = ends.length; ends.push(0); }
+      ends[k] = L.end; laneOf.set(L.id, k);
+    });
+    txtRow._lanes = Math.max(1, ends.length);
+    if (!list.length) {
+      const hint = document.createElement('button'); hint.type = 'button'; hint.className = 'ttx-add'; hint.textContent = '+ Add text here';
+      hint.onclick = e => { e.stopPropagation(); api.addText && api.addText(); };
+      txtRow.appendChild(hint);
+    }
     list.forEach(L => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'ttx' + (api.selectedText && api.selectedText() === L.id ? ' sel' : '');
       b.style.left = `${L.start * pps}px`; b.style.width = `${Math.max(14, (L.end - L.start) * pps - 2)}px`;
+      b.style.top = `${laneOf.get(L.id) * 24}px`; b.style.height = '20px';
       b.textContent = `T ${L.text.replace(/\s+/g, ' ')}`;
-      b.title = `${L.text} · ${L.start.toFixed(2)}–${L.end.toFixed(2)}s · drag to move, drag the right edge to resize`;
+      b.title = `${L.text} · ${L.start.toFixed(2)}–${L.end.toFixed(2)}s · drag to move, drag an edge to change when it starts or ends`;
       const grip = document.createElement('i'); grip.className = 'grip'; b.appendChild(grip);
+      const gripL = document.createElement('i'); gripL.className = 'grip l'; b.appendChild(gripL);
       b.onpointerdown = e => {
         e.stopPropagation();
-        const resize = e.target === grip, x0 = e.clientX, s0 = L.start, e0 = L.end, len = e0 - s0;
+        const resize = e.target === grip, resizeL = e.target === gripL, x0 = e.clientX, s0 = L.start, e0 = L.end, len = e0 - s0;
         let moved = false;
         b.setPointerCapture(e.pointerId);
         b.onpointermove = ev => {
@@ -191,6 +288,7 @@ export function mountTimeline(root, api) {
           if (!moved && Math.abs(ev.clientX - x0) < 4) return;
           moved = true;
           if (resize) api.timeText(L.id, s0, Math.min(dur || Infinity, Math.max(s0 + 0.2, e0 + dt)), false);
+          else if (resizeL) api.timeText(L.id, Math.max(0, Math.min(e0 - 0.2, s0 + dt)), e0, false);
           else { const s = Math.max(0, Math.min((dur || Infinity) - len, s0 + dt)); api.timeText(L.id, s, s + len, false); }
           const now = api.texts().find(x => x.id === L.id);
           if (now) { b.style.left = `${now.start * pps}px`; b.style.width = `${Math.max(14, (now.end - now.start) * pps - 2)}px`; }

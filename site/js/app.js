@@ -111,7 +111,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -566,6 +566,13 @@ var timeline = mountTimeline($('timeline'), {
   addText: () => addText(),
   selectWord: (si, wi) => { S.wordSel = si == null ? null : [si, wi]; renderWordUI(); if (si != null) showRTab('style'); },
   clip: () => S.o.clip || null,
+  media: () => (S.file && !S.image && S.fileURL ? { url: S.fileURL, name: S.file.name.replace(/\.[^.]+$/, ''), dur: video.duration || 0 } : null),
+  trim: () => S.o.trim || null,
+  setTrim: (start, end, save) => {
+    const d = video.duration || 0;
+    S.o.trim = start <= 0.05 && end >= d - 0.05 ? null : { start: +start.toFixed(2), end: +end.toFixed(2) };
+    if (save) { commit(); timeline.render(); if (S.o.trim) toast(`Trimmed: ${fmt(S.o.trim.start)}–${fmt(S.o.trim.end)}. The export uses only this part.`); }
+  },
   splitAt: t => {
     const i = C.indexAt(S.segments, t), seg = S.segments[i];
     const at = seg ? seg.words.filter(w => w.start < t).length : 0;
@@ -1899,7 +1906,8 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
   const mimeType = kind === 'alpha' ? alphaMime() : pickMime();
   if (!mimeType) return toast('This browser can’t record video. Try Chrome, Edge, Firefox or Safari.', 6000);
   // A short: only its part of the video. Otherwise the whole thing.
-  const range = S.o.clip ? { start: S.o.clip.start, end: Math.min(S.o.clip.end, video.duration) } : { start: 0, end: video.duration };
+  const part = S.o.clip || S.o.trim;
+  const range = part ? { start: part.start, end: Math.min(part.end, video.duration) } : { start: 0, end: video.duration };
   const dur = range.end - range.start;
   if (!isFinite(dur) || dur <= 0) return toast('Couldn’t read the video length, so it can’t be exported.');
   if (!S.segments.length && !texts().length && !confirm(overlay ? 'There are no captions yet, so this file would be empty. Continue anyway?' : 'There are no captions yet. Export the video without captions?')) return;
@@ -2240,7 +2248,7 @@ function drawFrame() {
 function loop() {
   const t = drawFrame();
   if (S.mode === 'file' && isFinite(video.duration) && video.duration) {
-    const c = S.o.clip;
+    const c = S.o.clip || S.o.trim;
     if (c && !S.exporting) {
       // A short plays only its own part, on a loop.
       if (!video.paused && t >= c.end - 0.03) { video.pause(); video.currentTime = c.start; }
