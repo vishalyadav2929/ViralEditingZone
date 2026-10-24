@@ -1052,3 +1052,5 @@ body.design #ltabClips, body.design #tabCaptions, body.design #ltabSnd, body.des
 .ttx { padding-left: 12px; }
 .ttx-add { position: absolute; left: 30px; top: 0; height: 20px; border: 1px dashed #be185d; background: transparent; color: #f9a8d4; border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; cursor: pointer; }
 .tl-dock .tl-bar { position: sticky; top: 0; z-index: 6; background: inherit; }
+.tc-add { position: absolute; left: 30px; top: 0; height: 20px; border: 1px dashed #7c3aed; background: transparent; color: #c4b5fd; border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; cursor: pointer; }
+.tc-add:disabled { opacity: .7; cursor: default; }

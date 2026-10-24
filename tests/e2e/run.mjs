@@ -1551,6 +1551,46 @@ await step('CapCut-style timeline: text lanes, video filmstrip, trim the video a
   await ctx.close();
 });
 
+await step('animation off means nothing moves in any style; empty captions track offers Auto captions; umm/uh removal', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  assert.equal(await m.isVisible('.tc-add'), true, 'Auto captions on the empty captions track');
+  await m.setInputFiles('#srtIn', join(FIX, 'sample.srt'));
+  await m.waitForFunction(() => window.__vcz.S.segments.length > 0);
+  assert.equal(await m.locator('.tc-add').count(), 0);
+  assert.ok(await m.locator('.tc').count() > 0, 'captions on the timeline');
+  await m.click('#tabStyle'); await m.click('#animOff');
+  const moving = await m.evaluate(async () => {
+    const { drawCaption, buildChunks, spreadWords } = await import('./js/renderer.js');
+    const { TEMPLATES } = await import('./js/templates.js');
+    const S = window.__vcz.S, out = [];
+    for (const t0 of TEMPLATES) {
+      if (t0.none) continue;
+      S.tplId = t0.id;
+      const tp = window.__vcz.tpl();
+      const snap = t => { const c = document.createElement('canvas'); c.width = 270; c.height = 480; const x = c.getContext('2d'); const ch = buildChunks(spreadWords('this is how your reels go viral today', 1, 4), tp.words || 3, 40)[0]; drawCaption(x, 270, 480, ch, ch.start + t, tp); return x.getImageData(0, 0, 270, 480).data; };
+      const a = snap(0);
+      for (const t of [0.15, 0.4, 0.9, 1.6]) { const d = snap(t); let n = 0; for (let i = 3; i < d.length; i += 4) if (Math.abs(d[i] - a[i]) > 60) n++; if (n > 30) { out.push(`${t0.id}@${t}:${n}`); break; } }
+    }
+    return out;
+  });
+  assert.deepEqual(moving, [], 'styles still moving with animation off');
+  // Picking an animation turns it back on.
+  await m.selectOption('#animSel', 'pop');
+  assert.equal(await m.evaluate(() => !!window.__vcz.tpl().still), false);
+  // Filler words.
+  await m.evaluate(() => { const S = window.__vcz.S; window.__vcz.setSegments([{ start: 0, end: 2, words: [{ text: 'umm', start: 0, end: 0.3 }, { text: 'hello', start: 0.4, end: 0.8 }, { text: 'uh', start: 0.9, end: 1.1 }, { text: 'friends', start: 1.2, end: 1.8 }] }]); });
+  await m.click('#tabCaptions'); await m.click('#cleanFillers');
+  assert.deepEqual(await m.evaluate(() => window.__vcz.S.segments[0].words.map(w => w.text)), ['hello', 'friends']);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

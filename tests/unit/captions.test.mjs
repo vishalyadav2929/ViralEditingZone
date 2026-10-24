@@ -136,3 +136,16 @@ test('title and lower-case styles keep acronyms like AC and UPI', async () => {
   assert.equal(textFor('Raha', { lower: true }), 'raha');
   assert.equal(textFor('I', { lower: true }), 'i');
 });
+
+test('filler words are removed, real words stay', async () => {
+  const { removeFillers } = await import('../../site/js/captions.js');
+  const w = (text, start) => ({ text, start, end: start + 0.3 });
+  const { segments, removed } = removeFillers([
+    { start: 0, end: 2, words: [w('Umm,', 0), w('so', 0.4), w('like', 0.8), w('uh', 1.2), w('this', 1.6)] },
+    { start: 3, end: 3.3, words: [w('hmm...', 3)] },
+    { start: 4, end: 4.6, words: [w('matlab', 4), w('अं', 4.3)] },
+  ]);
+  assert.equal(removed, 4);
+  assert.deepEqual(segments.map(s => s.words.map(x => x.text).join(' ')), ['so like this', 'matlab']);
+  assert.equal(segments[0].start, 0.4);
+});
