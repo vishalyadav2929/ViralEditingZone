@@ -205,3 +205,22 @@ export function applyTranslation(segments, indices, text) {
     return { ...s, id: s.id, words: spreadWords(take.join(' '), s.start, s.end), approx: true };
   }).filter(Boolean);
 }
+
+// Filler sounds people say between words (English and Hindi). Kept conservative: real words such as
+// "like" or "matlab" are never removed.
+const FILLERS = /^(u+m+|u+h+m*|h+m+|e+r+m*|a+h+|a+a+h*|o+h+|अ+ं*|उ+म+|हम्म+)$/iu;
+/** Captions without filler words ("umm", "uh", "hmm"…); captions left empty are dropped. */
+export function removeFillers(segments) {
+  let removed = 0;
+  const out = [];
+  for (const s of segments || []) {
+    const words = (s.words || []).filter(w => {
+      const bare = String(w.text).replace(/[^\p{L}\p{M}]/gu, '');
+      const f = bare && FILLERS.test(bare);
+      if (f) removed++;
+      return !f;
+    });
+    if (words.length) out.push({ ...s, words, start: words[0].start, end: words[words.length - 1].end });
+  }
+  return { segments: out, removed };
+}

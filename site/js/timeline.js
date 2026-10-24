@@ -119,8 +119,15 @@ export function mountTimeline(root, api) {
       else tick.className = 'minor';
       ruler.appendChild(tick);
     }
-    // Words and captions
+    // Words and captions (an empty captions track offers auto captions, like CapCut)
     wordsRow.innerHTML = ''; capsRow.innerHTML = '';
+    if (!api.segments().length && api.makeCaptions) {
+      const busy = api.captionsBusy && api.captionsBusy();
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'tc-add'; b.disabled = !!busy;
+      b.textContent = busy ? '⏳ Making captions…' : '✨ Auto captions';
+      b.onclick = e => { e.stopPropagation(); api.makeCaptions(); };
+      capsRow.appendChild(b);
+    }
     api.segments().forEach((seg, si) => {
       const c = document.createElement('button');
       c.type = 'button'; c.className = 'tc';
@@ -178,11 +185,11 @@ export function mountTimeline(root, api) {
     const l = document.createElement('span'); l.className = 'tl-lab'; l.textContent = icon; l.title = title; row.prepend(l);
   }
   function layout() {
-    const segs = api.segments().length > 0, txt = !txtRow.hidden, snd = sfxRow.children.length > 0;
+    const segs = api.segments().length > 0, snd = sfxRow.children.length > 0;
     let y = 22;
     const place = (el, h, show = true) => { el.hidden = !show; if (!show) return; el.style.top = `${y}px`; el.style.height = `${h}px`; y += h + 4; };
     place(txtRow, Math.max(1, txtRow._lanes || 1) * 24, true);
-    place(wordsRow, 22, segs); place(capsRow, 20, segs);
+    place(wordsRow, 22, segs); place(capsRow, 20, segs || !!capsRow.querySelector('.tc-add'));
     place(sfxRow, 18, snd);
     place(videoRow, 46, !!api.duration());
     wave.style.top = `${y}px`; y += 40;

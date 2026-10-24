@@ -152,7 +152,7 @@ function drawRansom(ctx, lay, px, t, live) {
 
 // ---------- drawing one styled word at (0,0) ----------
 function drawStyled(ctx, it, s, px, t, tpl) {
-  if (it.ransom) return drawRansom(ctx, it.ransom, px, t, tpl.fx === 'ransomLive');
+  if (it.ransom) return drawRansom(ctx, it.ransom, px, t, tpl.fx === 'ransomLive' && !tpl.still);
   const text = it.text;
   if (s.box) {
     const padX = px * 0.18, padY = px * 0.1, bh = px * (it.indic ? 1.3 : 1.1);
@@ -303,7 +303,7 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
 
   if (tpl.fx === 'notification') {
     ctx.translate(W / 2 + gx, cy + gy); ctx.scale(gScale, gScale); ctx.translate(-W / 2, -cy);
-    drawNotification(ctx, W, H, chunk, t, px, cy, alpha);
+    drawNotification(ctx, W, H, chunk, tpl.still ? Math.max(t, chunk.end - 0.01) : t, px, cy, alpha);
     ctx.restore();
     return;
   }
@@ -314,7 +314,8 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
   const key = keyIndex(chunk.words);
   const n = chunk.words.length;
   const items = chunk.words.map((w, i) => {
-    const state = i < active ? 'past' : i === active ? 'active' : 'pending';
+    // "Still" (animation off): every word in its final look, nothing changes while the caption shows.
+    const state = tpl.still ? 'past' : i < active ? 'past' : i === active ? 'active' : 'pending';
     const s = styleFor(tpl, i, n, key, state);
     // A colour the editor picked for this one word wins over the template.
     if (w.color) { s.color = w.color; s.gradient = null; }

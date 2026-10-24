@@ -92,6 +92,7 @@ function tpl() {
   if (o.font) r.font = o.font;
   // Animation overrides: entry, speed, how words appear, and the spoken-word highlight.
   if (o.anim) r.anim = o.anim;
+  if (o.still) r.still = true;
   if (o.animSpeed) r.animDur = o.animSpeed === 'slow' ? 0.45 : 0.12;
   if (o.reveal) r.reveal = o.reveal;
   if (o.hi) { r.hi = o.hi; if (o.hi !== 'none' && !r.hiColor) r.hiColor = '#FFE600'; if (o.hi === 'box' && !r.boxText) r.boxText = '#111111'; }
@@ -354,12 +355,13 @@ bind('pos', el => { S.o.pos = el.value / 100; }, el => { $('posVal').textContent
 bind('maxW', el => { S.o.maxWidth = el.value / 100; }, el => { $('maxWVal').textContent = `${el.value}%`; });
 bind('lineGap', el => { S.o.lineGap = el.value / 100; }, el => { $('lineGapVal').textContent = (el.value / 100).toFixed(2); });
 bind('weight', el => { S.o.weight = el.value || null; });
-bind('animSel', el => { S.o.anim = el.value || null; });
+// Picking any animation turns "all animation off" back off.
+bind('animSel', el => { S.o.anim = el.value || null; if (el.value !== 'none') S.o.still = null; });
 bind('animSpeed', el => { S.o.animSpeed = el.value || null; });
-bind('revealSel', el => { S.o.reveal = el.value || null; });
-bind('hiSel', el => { S.o.hi = el.value || null; });
+bind('revealSel', el => { S.o.reveal = el.value || null; if (el.value !== 'none') S.o.still = null; });
+bind('hiSel', el => { S.o.hi = el.value || null; if (el.value !== 'none') S.o.still = null; });
 $('animOff').onclick = () => {
-  Object.assign(S.o, { anim: 'none', reveal: 'none', hi: 'none' });
+  Object.assign(S.o, { anim: 'none', reveal: 'none', hi: 'none', still: true });
   syncControls(); commit(); toast('Animation off: captions just appear. Pick any animation to turn it back on.');
 };
 TEXT_FONTS.forEach(f => { const o = document.createElement('option'); o.value = o.textContent = f; o.style.fontFamily = `'${f}'`; $('fontSel').appendChild(o); });
@@ -566,6 +568,8 @@ var timeline = mountTimeline($('timeline'), {
   addText: () => addText(),
   selectWord: (si, wi) => { S.wordSel = si == null ? null : [si, wi]; renderWordUI(); if (si != null) showRTab('style'); },
   clip: () => S.o.clip || null,
+  makeCaptions: () => { showLTab('captions'); startCaptions(); timeline.render(); },
+  captionsBusy: () => genRunning,
   media: () => (S.file && !S.image && S.fileURL ? { url: S.fileURL, name: S.file.name.replace(/\.[^.]+$/, ''), dur: video.duration || 0 } : null),
   trim: () => S.o.trim || null,
   setTrim: (start, end, save) => {
@@ -956,6 +960,13 @@ function setSegments(next, keepSel = true) {
   if (!keepSel) S.selected = -1;
   renderSegs(); syncActions(); commit();
 }
+$('cleanFillers').onclick = () => {
+  if (!S.segments.length) return toast('Make captions first.');
+  const { segments, removed } = C.removeFillers(S.segments);
+  if (!removed) return toast('No umm, uh or hmm found in the captions.');
+  setSegments(segments, false);
+  toast(`Removed ${removed} filler word${removed > 1 ? 's' : ''} from the captions. Ctrl+Z brings them back.`);
+};
 function seekTo(t) { if (S.mode === 'file' && video.src) video.currentTime = Math.max(0, t + 0.01); }
 
 function renderSegs() {
