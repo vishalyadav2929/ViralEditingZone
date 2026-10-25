@@ -2,7 +2,7 @@
 // a playhead. Click to jump, double-click a word to fix it, Delete to remove it, zoom in/out.
 // All edits go back through `api`, so undo/redo and the caption list stay in step.
 
-const ZOOMS = [30, 60, 100, 160, 240, 360]; // pixels per second
+const ZOOMS = [4, 8, 15, 30, 60, 100, 160, 240, 360]; // pixels per second
 
 /**
  * api: { segments(), duration(), time(), playing(), seek(t), editWord(si, wi, text), deleteWord(si, wi),
@@ -57,7 +57,7 @@ export function mountTimeline(root, api) {
   $('.tl-addtxt').onclick = () => api.addText && api.addText();
   menu.querySelector('.tl-auto-sel').onchange = e => api.setAutoSound(e.target.value || null);
   const scroll = $('.tl-scroll'), inner = $('.tl-inner'), ruler = $('.tl-ruler'), wordsRow = $('.tl-words'), capsRow = $('.tl-caps'), wave = $('.tl-wave'), head = $('.tl-head');
-  let zi = 2, pps = ZOOMS[zi], fitted = false, sel = null; // sel = [si, wi]
+  let zi = 5, pps = ZOOMS[zi], fitted = false, sel = null; // sel = [si, wi]
 
   root.querySelector('.tl-zoom').onclick = e => {
     const d = +(e.target.dataset.z || 0);
@@ -103,9 +103,9 @@ export function mountTimeline(root, api) {
   function renderNow() {
     const dur = api.duration() || 0;
     if (!fitted && dur) {
-      // Start zoomed so a short reel fits the width; long videos get a comfortable reading zoom.
-      const fit = (scroll.clientWidth - 20) / dur;
-      zi = dur <= 15 ? ZOOMS.reduce((best, z, i) => (z <= Math.max(fit, ZOOMS[0]) ? i : best), 0) : 2; pps = ZOOMS[zi];
+      // Start with the whole video in view (up to 2 minutes, like CapCut); longer videos get a reading zoom.
+      const fit = (scroll.clientWidth - 40) / dur;
+      zi = dur <= 120 ? ZOOMS.reduce((best, z, i) => (z <= Math.max(fit, ZOOMS[0]) ? i : best), 0) : 5; pps = ZOOMS[zi];
     }
     const W = Math.max(scroll.clientWidth - 2, Math.ceil(dur * pps) + 24);
     inner.style.width = `${W}px`;

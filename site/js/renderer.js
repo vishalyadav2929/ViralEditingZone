@@ -282,7 +282,8 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
   const maxW = W * clamp(tpl.maxWidth ?? 0.88, 0.3, 0.96);
 
   // Group entry animation.
-  const e = clamp((t - chunk.start) / (tpl.animDur || 0.22));
+  // opts.settled (a paused preview): show the caption fully, as it looks once its animations have played.
+  const e = opts.settled ? 1 : clamp((t - chunk.start) / (tpl.animDur || 0.22));
   let alpha = 1, gScale = 1, gx = 0, gy = 0, gRot = 0;
   switch (tpl.anim) {
     case 'pop': gScale = 0.7 + 0.3 * easeOutBack(e); alpha = clamp(e * 3); break;
@@ -303,7 +304,7 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
 
   if (tpl.fx === 'notification') {
     ctx.translate(W / 2 + gx, cy + gy); ctx.scale(gScale, gScale); ctx.translate(-W / 2, -cy);
-    drawNotification(ctx, W, H, chunk, tpl.still ? Math.max(t, chunk.end - 0.01) : t, px, cy, alpha);
+    drawNotification(ctx, W, H, chunk, tpl.still || opts.settled ? Math.max(t, chunk.end - 0.01) : t, px, cy, alpha);
     ctx.restore();
     return;
   }
@@ -459,7 +460,7 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
     if (!shown(it)) return;
     const s = it.s;
     ctx.save();
-    const since = t - it.w.start;
+    const since = opts.settled ? 9 : t - it.w.start;
     if (reveal === 'type') ctx.globalAlpha = alpha * clamp(since / 0.08);
     if (reveal === 'blur' && 'filter' in ctx) {
       const p = clamp(since / 0.25);
@@ -493,7 +494,7 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
     const it = items.find(x => x.state === 'active');
     const em = it && emojiFor(it.w.text);
     if (em) {
-      const since = t - it.w.start, e2 = easeOutBack(clamp(since / 0.25));
+      const since = opts.settled ? 9 : t - it.w.start, e2 = easeOutBack(clamp(since / 0.25));
       ctx.save();
       ctx.globalAlpha = alpha * clamp(since / 0.1);
       ctx.font = `${Math.round(it.px * 1.15 * (0.6 + 0.4 * e2))}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif`;
