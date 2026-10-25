@@ -1747,6 +1747,36 @@ await step('text: opacity, glow, and motion keyframes make the text glide across
   await ctx.close();
 });
 
+await step('captions: horizontal position slider moves the caption left and right', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForTimeout(400);
+  await m.setInputFiles('#srtIn', join(FIX, 'sample.srt'));
+  await m.waitForFunction(() => window.__vcz.S.segments.length > 0, null, { timeout: 15000 });
+  // Put the playhead on a caption and pause so the full caption is drawn.
+  await m.evaluate(() => { const v = window.__vcz.video; v.pause(); v.currentTime = window.__vcz.S.segments[0].start + 0.1; });
+  await m.waitForTimeout(200);
+  // Horizontal centre of the brightest (text) pixels on the preview canvas.
+  const centroidX = () => m.evaluate(() => {
+    const c = document.getElementById('stage'), x = c.getContext('2d');
+    const d = x.getImageData(0, 0, c.width, c.height).data; let sx = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) { if (d[i] > 210 && d[i + 1] > 210 && d[i + 2] > 210) { sx += ((i / 4) % c.width); n++; } }
+    return n ? sx / n / c.width : null;
+  });
+  const setX = async v => { await m.$eval('#posX', (el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, v); await m.waitForTimeout(150); };
+  await setX(20); const leftC = await centroidX();
+  await setX(80); const rightC = await centroidX();
+  assert.ok(leftC != null && rightC != null, `found text pixels: ${leftC}, ${rightC}`);
+  assert.ok(rightC - leftC > 0.1, `caption moved right: ${leftC.toFixed(2)} → ${rightC.toFixed(2)}`);
+  assert.equal(await m.evaluate(() => window.__vcz.S.o.posX), 0.8);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

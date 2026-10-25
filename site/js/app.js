@@ -338,6 +338,7 @@ function syncControls() {
   $('bgColor').value = toHex(o.bgColor || '#000000');
   $('bgOp').value = o.bgOp ?? (t.bg ? 60 : 0); $('bgOpVal').textContent = `${$('bgOp').value}%`;
   $('pos').value = Math.round((o.pos ?? baseTpl().pos ?? 0.72) * 100); $('posVal').textContent = `${$('pos').value}%`;
+  $('posX').value = Math.round((o.posX ?? baseTpl().posX ?? 0.5) * 100); $('posXVal').textContent = `${$('posX').value}%`;
   $('maxW').value = Math.round((t.maxWidth ?? 0.88) * 100); $('maxWVal').textContent = `${$('maxW').value}%`;
   $('lineGap').value = Math.round((t.lineGap ?? 1.16) * 100); $('lineGapVal').textContent = ($('lineGap').value / 100).toFixed(2);
   const one = t.oneLine ? 'one' : 'auto';
@@ -353,6 +354,7 @@ const bind = (id, apply, label) => {
 };
 bind('size', el => { S.o.scale = el.value / 100; }, el => { $('sizeVal').textContent = `${el.value}%`; });
 bind('pos', el => { S.o.pos = el.value / 100; }, el => { $('posVal').textContent = `${el.value}%`; });
+bind('posX', el => { S.o.posX = el.value / 100; }, el => { $('posXVal').textContent = `${el.value}%`; });
 bind('maxW', el => { S.o.maxWidth = el.value / 100; }, el => { $('maxWVal').textContent = `${el.value}%`; });
 bind('lineGap', el => { S.o.lineGap = el.value / 100; }, el => { $('lineGapVal').textContent = (el.value / 100).toFixed(2); });
 bind('weight', el => { S.o.weight = el.value || null; });
@@ -2066,7 +2068,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
   const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
   $('exportText').textContent = `Preparing ${ext.toUpperCase()} · ${size.w}×${size.h}…`;
   const job = exportJob = { cancelled: false, hidden: false };
-  const t0 = tpl(), opts = { scale: S.o.scale, pos: S.o.pos ?? undefined, fill: video };
+  const t0 = tpl(), opts = { scale: S.o.scale, pos: S.o.pos ?? undefined, posX: S.o.posX ?? undefined, fill: video };
   const paint = t => {
     if (kind === 'alpha') xctx.clearRect(0, 0, size.w, size.h);
     else if (kind === 'green') { xctx.fillStyle = '#00FF00'; xctx.fillRect(0, 0, size.w, size.h); }
@@ -2370,7 +2372,7 @@ function sampleChunks() {
 }
 function drawFrame() {
   const W = canvas.width, H = canvas.height;
-  const t0 = tpl(), opts = { scale: S.o.scale, pos: S.o.pos ?? undefined, fill: video };
+  const t0 = tpl(), opts = { scale: S.o.scale, pos: S.o.pos ?? undefined, posX: S.o.posX ?? undefined, fill: video };
   if (S.mode === 'file' && S.image) {
     const img = S.image, f = S.o.frame, fw = f ? f.w : img.naturalWidth, fh = f ? f.h : img.naturalHeight;
     if (Math.abs(W / H - fw / fh) > 0.01) fitCanvas(fw, fh);
