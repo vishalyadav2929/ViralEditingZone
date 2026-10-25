@@ -1664,6 +1664,46 @@ await step('cut silences: pauses found from the sound, skipped in preview, left 
   await ctx.close();
 });
 
+await step('AI edit (Claude): button only when switched on; the plan cuts, hooks, highlights and picks Shorts', async () => {
+  const src = join(OUT, 'pause.webm'); // made by the cut-silences step
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  let sent = null;
+  await m.route('**/api/ai-edit', async r => {
+    if (r.request().method() === 'GET') return r.fulfill({ json: { enabled: true } });
+    sent = r.request().postDataJSON();
+    return r.fulfill({ json: { cuts: [{ start: 2, end: 4, reason: 'bad take' }], hook: 'Ye galti mat karna', highlights: ['paisa'], shorts: [{ start: 0, end: 6, title: 'Paisa bachao' }], title: 'Paisa kaise bachaye', description: 'Simple tips.' } });
+  });
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', src);
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForSelector('.tl-acts [data-act="claude"]:not([hidden])');
+  await m.click('.tl-acts [data-act="claude"]');
+  assert.equal(sent, null, 'no captions yet, so nothing is sent');
+  await m.evaluate(() => window.__vcz.setSegments([
+    { start: 0, end: 1.8, words: [{ text: 'Paisa', start: 0, end: 0.5 }, { text: 'bachana', start: 0.6, end: 1.2 }, { text: 'hai', start: 1.3, end: 1.8 }] },
+    { start: 2, end: 3.8, words: [{ text: 'galat', start: 2, end: 2.6 }, { text: 'take', start: 2.7, end: 3.8 }] },
+    { start: 4, end: 5.8, words: [{ text: 'paisa,', start: 4, end: 4.6 }, { text: 'bachao', start: 4.7, end: 5.8 }] },
+  ]));
+  await m.click('.tl-acts [data-act="claude"]');
+  await m.waitForFunction(() => (window.__vcz.S.o.cuts || []).length === 1);
+  assert.equal(sent.lines.length, 3);
+  assert.equal(sent.lines[1].text, 'galat take');
+  const st = await m.evaluate(() => { const S = window.__vcz.S; return { cuts: S.o.cuts, hook: (S.o.texts || []).filter(l => l.hook).map(l => l.text), colored: S.segments.flatMap(s => s.words).filter(w => w.color).map(w => w.text), found: (S.o.found || []).map(c => c.title) }; });
+  assert.deepEqual(st.cuts, [{ start: 2, end: 4 }]);
+  assert.deepEqual(st.hook, ['Ye galti mat karna']);
+  assert.deepEqual(st.colored, ['Paisa', 'paisa,']);
+  assert.deepEqual(st.found, ['Paisa bachao']);
+  assert.match(await m.textContent('#clipNote'), /Paisa kaise bachaye/);
+  // One undo takes the whole AI edit back.
+  await m.keyboard.press('Control+z');
+  assert.equal(await m.evaluate(() => (window.__vcz.S.o.cuts || []).length), 0);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

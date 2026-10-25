@@ -11,5 +11,9 @@
     "test:asr": "node tests/asr/run.mjs",
     "test:qa": "node tests/qa/user-flow.mjs"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@netlify/blobs": "^11.1.6"
+  }
 }
