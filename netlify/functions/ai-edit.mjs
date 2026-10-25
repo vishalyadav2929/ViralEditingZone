@@ -1,15 +1,21 @@
-// AI edit by Claude: reads the timed transcript and returns an edit plan (bad takes / repeats / rambling to
-// cut, a hook, words to highlight, the best Shorts, a title and description). The browser applies the plan
-// with its own editor, so everything stays editable and undoable. Only caption text is sent, never media.
-// Off until the site owner sets ANTHROPIC_API_KEY. Limits: requests from this site only, a few per visitor
-// per day, a daily total for the whole site, and a cap on transcript length.
+// AI edit: reads the timed transcript and returns an edit plan (bad takes / repeats / rambling to cut, a
+// hook, words to highlight, the best Shorts, a title and description). The browser applies the plan with its
+// own editor, so everything stays editable and undoable. Only caption text is sent, never media.
+// Two engines, whichever key the site owner has set: Claude (ANTHROPIC_API_KEY, best) or Groq's free tier
+// (GROQ_API_KEY, the same key as Fast mode). Off until one of them is set. Limits: requests from this site
+// only, a few per visitor per day, a daily total for the whole site, and a cap on transcript length.
 import Anthropic from '@anthropic-ai/sdk';
 import { getStore } from '@netlify/blobs';
 
 const MODEL = 'claude-opus-5-5';
+const GROQ = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const MAX_LINES = 400, MAX_CHARS = 30000;
 const env = k => (globalThis.Netlify && Netlify.env.get(k)) || process.env[k] || '';
-const key = () => env('ANTHROPIC_API_KEY');
+const anthropicKey = () => env('ANTHROPIC_API_KEY');
+const groqKey = () => env('GROQ_API_KEY');
+// Claude first (best edits), else Groq's free tier. Null when neither key is set.
+const engine = () => (anthropicKey() ? 'claude' : groqKey() ? 'groq' : null);
 const perUser = () => Math.max(1, +env('AI_EDIT_PER_USER') || 5);
 const perDay = () => Math.max(1, +env('AI_EDIT_PER_DAY') || 200);
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -111,21 +117,9 @@ async function overLimit(ip) {
   return '';
 }
 
-export default async function handler(req, context) {
-  if (req.method === 'GET') return json({ enabled: !!key() });
-  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-  if (!key()) return json({ error: 'AI edit is not set up on this site.' }, 404);
-  const origin = req.headers.get('origin');
-  if (!origin || new URL(origin).host !== new URL(req.url).host) return json({ error: 'forbidden' }, 403);
-  let body;
-  try { body = await req.json(); } catch { return json({ error: 'bad request' }, 400); }
-  const { lines, tooLong } = cleanLines(body && body.lines);
-  if (tooLong) return json({ error: `This video is too long for AI edit (up to ${MAX_LINES} caption lines). Cut it into parts first.` }, 413);
-  if (lines.length < 3) return json({ error: 'Make captions first: AI edit reads what is said.' }, 400);
-  const limited = await overLimit((context && context.ip) || req.headers.get('x-nf-client-connection-ip') || 'unknown');
-  if (limited) return json({ error: limited }, 429);
-
-  const client = new Anthropic({ apiKey: key(), timeout: 60000, maxRetries: 1 });
+/** Ask Claude for the plan. Returns the parsed JSON text; throws a tagged Error on failure. */
+async function runClaude(lines) {
+  const client = new Anthropic({ apiKey: anthropicKey(), timeout: 60000, maxRetries: 1 });
   let msg;
   try {
     msg = await client.beta.messages.create({
@@ -138,15 +132,57 @@ export default async function handler(req, context) {
       messages: [{ role: 'user', content: buildPrompt(lines) }],
     });
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: 'AI is busy. Try again in a minute.' }, 429);
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'AI edit key is not valid. The site owner needs to check it.' }, 502);
-    if (e instanceof Anthropic.APIError) return json({ error: `AI server error ${e.status || ''}`.trim() }, 502);
-    return json({ error: 'AI server unreachable' }, 502);
+    if (e instanceof Anthropic.RateLimitError) throw tagged('AI is busy. Try again in a minute.', 429);
+    if (e instanceof Anthropic.AuthenticationError) throw tagged('AI edit key is not valid. The site owner needs to check it.', 502);
+    if (e instanceof Anthropic.APIError) throw tagged(`AI server error ${e.status || ''}`.trim(), 502);
+    throw tagged('AI server unreachable', 502);
   }
-  if (msg.stop_reason === 'refusal') return json({ error: 'AI could not edit this video.' }, 422);
+  if (msg.stop_reason === 'refusal') throw tagged('AI could not edit this video.', 422);
   const block = msg.content.find(b => b.type === 'text');
+  return block ? block.text : '';
+}
+
+/** Ask Groq (free tier, OpenAI-style chat) for the plan. Same prompt, plus the JSON shape it must return. */
+async function runGroq(lines) {
+  const shape = 'Reply with ONLY a JSON object: {"cuts":[{"from":<line>,"to":<line>,"reason":"..."}],"hook":"...","highlights":["word"],"shorts":[{"from":<line>,"to":<line>,"title":"..."}],"title":"...","description":"..."}';
+  let res;
+  try {
+    res = await fetch(GROQ, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${groqKey()}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: GROQ_MODEL, temperature: 0.3, response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: `${buildPrompt(lines)}\n\n${shape}` }],
+      }),
+    });
+  } catch { throw tagged('AI server unreachable', 502); }
+  if (!res.ok) throw tagged(res.status === 429 ? 'AI is busy. Try again in a minute.' : `AI server error ${res.status}`, res.status === 429 ? 429 : 502);
+  const out = await res.json();
+  return (out.choices && out.choices[0] && out.choices[0].message && out.choices[0].message.content) || '';
+}
+
+const tagged = (msg, status) => Object.assign(new Error(msg), { status });
+
+export default async function handler(req, context) {
+  const eng = engine();
+  if (req.method === 'GET') return json({ enabled: !!eng, engine: eng });
+  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+  if (!eng) return json({ error: 'AI edit is not set up on this site.' }, 404);
+  const origin = req.headers.get('origin');
+  if (!origin || new URL(origin).host !== new URL(req.url).host) return json({ error: 'forbidden' }, 403);
+  let body;
+  try { body = await req.json(); } catch { return json({ error: 'bad request' }, 400); }
+  const { lines, tooLong } = cleanLines(body && body.lines);
+  if (tooLong) return json({ error: `This video is too long for AI edit (up to ${MAX_LINES} caption lines). Cut it into parts first.` }, 413);
+  if (lines.length < 3) return json({ error: 'Make captions first: AI edit reads what is said.' }, 400);
+  const limited = await overLimit((context && context.ip) || req.headers.get('x-nf-client-connection-ip') || 'unknown');
+  if (limited) return json({ error: limited }, 429);
+
+  let text;
+  try { text = eng === 'claude' ? await runClaude(lines) : await runGroq(lines); }
+  catch (e) { return json({ error: e.message || 'AI server error' }, e.status || 502); }
   let plan;
-  try { plan = JSON.parse(block ? block.text : ''); } catch { return json({ error: 'AI reply was incomplete. Try again.' }, 502); }
+  try { plan = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim()); } catch { return json({ error: 'AI reply was incomplete. Try again.' }, 502); }
   return json(parsePlan(plan, lines));
 }
 

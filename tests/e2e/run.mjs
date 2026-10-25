@@ -1671,7 +1671,7 @@ await step('AI edit (Claude): button only when switched on; the plan cuts, hooks
   const errs = []; m.on('pageerror', e => errs.push(e.message));
   let sent = null;
   await m.route('**/api/ai-edit', async r => {
-    if (r.request().method() === 'GET') return r.fulfill({ json: { enabled: true } });
+    if (r.request().method() === 'GET') return r.fulfill({ json: { enabled: true, engine: 'groq' } });
     sent = r.request().postDataJSON();
     return r.fulfill({ json: { cuts: [{ start: 2, end: 4, reason: 'bad take' }], hook: 'Ye galti mat karna', highlights: ['paisa'], shorts: [{ start: 0, end: 6, title: 'Paisa bachao' }], title: 'Paisa kaise bachaye', description: 'Simple tips.' } });
   });
