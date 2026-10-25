@@ -66,6 +66,7 @@ export function drawLayer(ctx, W, H, L) {
   if (!String(L.text).trim()) return null;
   const b = layout(ctx, W, H, L);
   ctx.save();
+  if (L.op != null && L.op < 1) ctx.globalAlpha *= Math.max(0, L.op);
   ctx.font = fontOf(L, b.px);
   ctx.textBaseline = 'middle';
   const pad = b.px * 0.3;
@@ -89,7 +90,11 @@ export function drawLayer(ctx, W, H, L) {
       ctx.lineWidth = b.px * L.strokeW; ctx.strokeStyle = L.stroke;
       ctx.strokeText(s, x, y);
     }
-    if (L.shadow) { ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = b.px * 0.18; ctx.shadowOffsetY = b.px * 0.05; }
+    if (L.shadow || L.glow) {
+      const k = L.shadowS != null ? L.shadowS : 1; // 0..2, from the strength slider
+      if (L.glow) { ctx.shadowColor = hexA(L.color, 0.9); ctx.shadowBlur = b.px * 0.3 * k; ctx.shadowOffsetY = 0; }
+      else { ctx.shadowColor = `rgba(0,0,0,${Math.min(0.85, 0.55 * k)})`; ctx.shadowBlur = b.px * 0.18 * k; ctx.shadowOffsetY = b.px * 0.05 * k; }
+    }
     const words = s.split(' ').filter(Boolean);
     if (!coloured || !words.length) { ctx.fillStyle = L.color; ctx.fillText(s, x, y); wi += words.length; }
     else {

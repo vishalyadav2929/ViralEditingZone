@@ -519,7 +519,17 @@
           </div>
           <div class="row field">
             <div class="color"><input type="color" id="txtColor" value="#ffffff" aria-label="Text colour"> Text</div>
+            <div><label for="txtOpacity">Opacity <b id="txtOpacityVal"></b></label><input type="range" id="txtOpacity" min="10" max="100" value="100"></div>
+          </div>
+          <div class="row field">
             <label class="check"><input type="checkbox" id="txtShadow" checked> Shadow</label>
+            <label class="check"><input type="checkbox" id="txtGlow"> Glow</label>
+            <div><label for="txtShadowS">Shadow strength <b id="txtShadowSVal"></b></label><input type="range" id="txtShadowS" min="0" max="200" value="100"></div>
+          </div>
+          <div class="field txt-motion">
+            <label>Motion (keyframes) <b id="txtKfCount"></b></label>
+            <div class="row"><button class="btn btn-sm" id="txtKfAdd" type="button" title="Mark where this text is at the playhead; move the playhead and drag the text elsewhere to make it move">◆ Add keyframe here</button><button class="btn btn-sm" id="txtKfClear" type="button" hidden>Clear motion</button></div>
+            <small>Add a keyframe, move the playhead, then drag the text to a new spot — it glides between the two.</small>
           </div>
           <div class="row field">
             <div class="color"><input type="color" id="txtStroke" value="#000000" aria-label="Outline colour"> Outline</div>
