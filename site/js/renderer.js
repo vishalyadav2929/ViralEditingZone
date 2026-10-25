@@ -278,6 +278,8 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
   const px = tpl.size * Math.min(W, H) * 1.6 * (opts.scale || 1);
   const pos = opts.pos ?? tpl.pos ?? 0.72;
   let cy = clamp(pos, 0.06, 0.95) * H;
+  const posX = opts.posX ?? tpl.posX ?? 0.5;
+  let cx = clamp(posX, 0.05, 0.95) * W;
   const hasIndic = chunk.words.some(w => INDIC.test(w.text));
   const maxW = W * clamp(tpl.maxWidth ?? 0.88, 0.3, 0.96);
 
@@ -377,11 +379,14 @@ export function drawCaption(ctx, W, H, chunk, t, tpl, opts = {}) {
   // Keep the whole block inside the frame, whatever the position setting.
   const margin = H * 0.04 + px * 0.2;
   cy = Math.min(Math.max(cy, margin + blockH / 2), H - margin - blockH / 2);
+  // Keep the block inside the frame left-to-right too, whatever the horizontal position setting.
+  const mx = W * 0.03;
+  cx = Math.min(Math.max(cx, mx + blockW / 2), W - mx - blockW / 2);
   let y = cy - blockH / 2;
-  const left = W / 2 - blockW / 2;
+  const left = cx - blockW / 2;
   lines.forEach((l, li) => {
     const shift = tpl.stagger ? (li % 2 ? 1 : -1) * px * tpl.stagger : 0;
-    let x = (tpl.align === 'left' ? left : tpl.align === 'right' ? left + blockW - l.width : W / 2 - l.width / 2) + shift;
+    let x = (tpl.align === 'left' ? left : tpl.align === 'right' ? left + blockW - l.width : cx - l.width / 2) + shift;
     l.y = y + l.h / 2;
     l.items.forEach(it => { it.x = x + it.width / 2; it.y = l.y; x += it.width + space; });
     y += l.h;
