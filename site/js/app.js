@@ -7,7 +7,7 @@ import { mountIntro } from './intro.js';
 import * as C from './captions.js';
 import { extractAacAdts } from './mp4audio.js';
 import { exportWebCodecs } from './export-webcodecs.js';
-import { exportFast } from './export-fast.js';
+import { exportFast, videoInfo } from './export-fast.js';
 import { Grader, LOOKS, buildLut, parseCube, DEFAULT_GRADE, isGraded } from './grade.js';
 import { mountTimeline, wavePeaks } from './timeline.js';
 import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
@@ -1196,6 +1196,12 @@ async function loadFile(file) {
   status(`Loaded “${file.name}”.`);
   renderMedia(); renderClipUI();
   showLTab(S.wantClips ? 'clips' : 'captions');
+  // iPhone HEVC/HDR videos are the hardest for browsers: say how to record them so exports stay smooth.
+  videoInfo(file).then(info => {
+    if (!info || S.file !== file || !(info.hdr || info.codec === 'hevc')) return;
+    const what = [info.codec === 'hevc' ? 'HEVC (H.265)' : '', info.hdr ? 'HDR' : ''].filter(Boolean).join(' + ');
+    toast(`This video is ${what}, the iPhone default. Browsers play it less smoothly than CapCut. For smooth exports: iPhone Settings → Camera → Formats → “Most Compatible”, and turn off Record Video → “HDR Video”.`, 12000);
+  });
   if (!opening) createProject(file, 'video');
   if (video.duration > 600) toast('Long video: transcription and export both take a while. Under 3 minutes works best.', 6000);
   renderSegs(); syncActions();

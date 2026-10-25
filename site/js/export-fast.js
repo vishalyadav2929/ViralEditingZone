@@ -19,6 +19,19 @@ const load = () => lib || (lib = import('./vendor/mediabunny.js'));
  *   onProgress(p, t)
  * @returns {Promise<Blob|'cancelled'|null>}
  */
+/** The video's codec and whether it is HDR (iPhones record HEVC + HDR by default), or null. */
+export async function videoInfo(file) {
+  try {
+    const M = await load();
+    const input = new M.Input({ source: new M.BlobSource(file), formats: M.ALL_FORMATS });
+    try {
+      const vt = await input.getPrimaryVideoTrack();
+      if (!vt) return null;
+      return { codec: await vt.getCodec(), hdr: await vt.hasHighDynamicRange() };
+    } finally { try { input.dispose && input.dispose(); } catch { /* closed */ } }
+  } catch { return null; }
+}
+
 /** A standard frame rate (24, 25, 30, 50, 60) for a measured average one. */
 export function standardFps(r) {
   if (r > 25.5 && r < 31) return 30; // a 30 fps phone video with some slow stretches stays 30
