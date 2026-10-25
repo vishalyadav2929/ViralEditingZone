@@ -1619,6 +1619,51 @@ await step('paused on a caption’s first frame: the caption shows fully and sty
   await ctx.close();
 });
 
+await step('cut silences: pauses found from the sound, skipped in preview, left out of the export; Auto edit', async () => {
+  // 6 s video: tone 0–2 s, silence 2–4 s, tone 4–6 s.
+  const src = join(OUT, 'pause.webm');
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=360x640:rate=30', '-f', 'lavfi', '-i', "aevalsrc='if(between(t,2,4),0,0.5*sin(2*PI*440*t))':s=48000:d=6", '-t', '6', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-c:a', 'libopus', src]);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, acceptDownloads: true, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  await m.addInitScript(() => { window.__vczFastCodecs = ['vp9']; });
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  m.on('dialog', d => d.accept());
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', src);
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForFunction(() => window.__vcz.S.wave, null, { timeout: 20000 });
+  await m.click('.tl-acts [data-act="silence"]');
+  const cuts = await m.evaluate(() => window.__vcz.S.o.cuts);
+  assert.equal(cuts.length, 1, JSON.stringify(cuts));
+  assert.ok(Math.abs(cuts[0].start - 2.15) < 0.1 && Math.abs(cuts[0].end - 3.85) < 0.1, JSON.stringify(cuts));
+  assert.equal(await m.locator('.tv-cut').count(), 1, 'cut shown on the video track');
+  // Preview: playing into the cut jumps over it.
+  await m.evaluate(async () => { const v = window.__vcz.video; v.currentTime = 1.8; await new Promise(r => v.addEventListener('seeked', r, { once: true })); v.muted = true; await v.play(); });
+  await m.waitForTimeout(900);
+  const t = await m.evaluate(() => { const v = window.__vcz.video; v.pause(); return v.currentTime; });
+  assert.ok(t > 3.85, `preview skipped the pause: at ${t}`);
+  // Export: 6 s − 1.7 s.
+  const dl = m.waitForEvent('download', { timeout: 120000 });
+  await m.click('#exportBtn'); await m.waitForSelector('#xDlg[open]'); await m.click('#xGo');
+  const d = await dl; const file = join(OUT, `cut-${d.suggestedFilename()}`); await d.saveAs(file);
+  assert.equal(await m.evaluate(() => window.__vczLastExport), 'cuts');
+  const dur = +execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString();
+  assert.ok(Math.abs(dur - 4.3) < 0.25, `exported ${dur}s`);
+  const streams = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file]).toString();
+  assert.match(streams, /audio/);
+  const vol = execFileSync('sh', ['-c', `ffmpeg -i "${file}" -af volumedetect -vn -f null - 2>&1 | grep -o 'mean_volume: [-0-9.]*'`]).toString();
+  assert.ok(+vol.split(':')[1] > -20, `the silence is gone, so the sound is loud throughout: ${vol}`);
+  console.log('   cut export:', dur.toFixed(2), 's,', vol.trim());
+  // Click the cut: the pause is back. Auto edit cuts it again.
+  await m.locator('.tv-cut').click();
+  assert.equal(await m.evaluate(() => (window.__vcz.S.o.cuts || []).length), 0);
+  await m.click('.tl-acts [data-act="auto"]');
+  assert.equal(await m.evaluate(() => (window.__vcz.S.o.cuts || []).length), 1);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

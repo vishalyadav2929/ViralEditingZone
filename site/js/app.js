@@ -7,7 +7,8 @@ import { mountIntro } from './intro.js';
 import * as C from './captions.js';
 import { extractAacAdts } from './mp4audio.js';
 import { exportWebCodecs } from './export-webcodecs.js';
-import { exportFast, videoInfo } from './export-fast.js';
+import { exportFast, exportKeep, videoInfo } from './export-fast.js';
+import { mergeCuts, keepRanges, cutAt, keptLength, findSilences, wordGaps } from './cuts.js';
 import { Grader, LOOKS, buildLut, parseCube, DEFAULT_GRADE, isGraded } from './grade.js';
 import { mountTimeline, wavePeaks } from './timeline.js';
 import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
@@ -112,7 +113,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -572,6 +573,10 @@ var timeline = mountTimeline($('timeline'), {
   captionsBusy: () => genRunning,
   media: () => (S.file && !S.image && S.fileURL ? { url: S.fileURL, name: S.file.name.replace(/\.[^.]+$/, ''), dur: video.duration || 0 } : null),
   trim: () => S.o.trim || null,
+  cuts: () => S.o.cuts || [],
+  removeCut: i => { S.o.cuts = (S.o.cuts || []).filter((_, k) => k !== i); commit(); timeline.render(); toast('Cut removed: that part is back.'); },
+  autoCut: () => removeSilences(),
+  autoEdit: () => autoEdit(),
   setTrim: (start, end, save) => {
     const d = video.duration || 0;
     S.o.trim = start <= 0.05 && end >= d - 0.05 ? null : { start: +start.toFixed(2), end: +end.toFixed(2) };
@@ -967,6 +972,41 @@ $('cleanFillers').onclick = () => {
   setSegments(segments, false);
   toast(`Removed ${removed} filler word${removed > 1 ? 's' : ''} from the captions. Ctrl+Z brings them back.`);
 };
+/** Cut the silent parts out (from caption word gaps when there are captions, else from the sound). */
+function removeSilences(quiet) {
+  const d = video.duration || 0;
+  if (!S.file || S.image || !d) return 0;
+  const found = S.segments.length ? wordGaps(S.segments) : findSilences(S.wave, 0.02);
+  if (!found.length) { if (!quiet) toast(S.wave || S.segments.length ? 'No pauses long enough to cut.' : 'Still reading the sound. Try again in a moment.'); return 0; }
+  const before = keptLength(S.o.cuts, 0, d);
+  S.o.cuts = mergeCuts([...(S.o.cuts || []), ...found], d);
+  const saved = before - keptLength(S.o.cuts, 0, d);
+  commit(); timeline.render();
+  if (!quiet) toast(`Cut ${found.length} pause${found.length > 1 ? 's' : ''} (${saved.toFixed(1)} s shorter). Red parts on the video track are skipped; click one to bring it back. Ctrl+Z undoes.`, 7000);
+  return saved;
+}
+/** One click: cut pauses, drop umm/uh, give plain captions a viral style and add a hook title. */
+function autoEdit() {
+  if (!S.file || S.image) return toast('Open a video first.');
+  const done = [];
+  if (S.segments.length) {
+    const { segments, removed } = C.removeFillers(S.segments);
+    if (removed) { S.segments = C.normalize(segments); renderSegs(); done.push(`${removed} umm/uh removed`); }
+  }
+  const saved = removeSilences(true);
+  if (saved > 0) done.push(`${saved.toFixed(1)} s of pauses cut`);
+  if (S.segments.length && S.tplId === 'classic') { const t = TEMPLATES.find(x => x.id === 'crazy'); if (t) { applyCaptionTpl(t); done.push('viral caption style'); } }
+  if (S.segments.length && !texts().some(l => l.hook)) {
+    const best = findClips(S.segments, { minLen: 3, maxLen: 600, ideal: 30, count: 1 })[0];
+    if (best && best.title) {
+      S.o.texts = [...texts(), newLayer({ text: best.title, start: 0, end: 3, x: 0.5, y: 0.16, size: 0.07, font: 'Montserrat', bold: true, strokeW: 0.14, hook: true, anim: 'pop' })];
+      done.push('hook title');
+    }
+  }
+  commit(); renderTextUI(); timeline.render();
+  if (!S.segments.length && !genRunning) { toast(`${done.length ? `Done: ${done.join(', ')}. ` : ''}Make captions too (✨ Auto captions) and press Auto edit again for umm/uh, style and a hook.`, 8000); return; }
+  toast(done.length ? `Auto edit: ${done.join(' · ')}. Everything stays editable; Ctrl+Z undoes.` : 'Nothing to change: no long pauses or umm/uh found.', 8000);
+}
 function seekTo(t) { if (S.mode === 'file' && video.src) video.currentTime = Math.max(0, t + 0.01); }
 
 function renderSegs() {
@@ -1955,6 +1995,32 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
     // Best quality first: WebCodecs (H.264 at ≥ source bitrate, original audio copied as-is).
     // Fastest first: decode → draw → encode without real-time playback (H.264 MP4). Sound effects need the
     // real-time mix below, so they skip this path for now.
+    // Cuts (silences, removed parts): only the kept parts are exported, joined.
+    const keep = kind === 'video' && (S.o.cuts || []).length ? keepRanges(S.o.cuts, range.start, range.end) : null;
+    if (keep && (keep.length > 1 || keep[0].start > range.start + 0.01 || keep[0].end < range.end - 0.01)) {
+      S.exportVia = 'cuts';
+      const bitrate = Math.round(Math.min(80e6, Math.max(srcBps * 1.5, size.w * size.h * 30 * 0.15, 4e6)));
+      const t0x = performance.now(), outLen = keep.reduce((s, r) => s + r.end - r.start, 0);
+      const res = await exportKeep({
+        file: S.file, width: size.w, height: size.h, keep, canvas: xcanvas, bitrate, job,
+        draw: (src, t, w, h) => {
+          drawVideo(xctx, size.w, size.h, src, w, h);
+          drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
+          drawTexts(xctx, size.w, size.h, t);
+        },
+        onProgress: (p, t) => {
+          $('exportBar').style.width = `${(p * 100).toFixed(1)}%`;
+          $('exportText').textContent = `${Math.round(p * 100)}% · ${fmt(t)} of ${fmt(outLen)} · ${size.w}×${size.h} · cuts joined`;
+        },
+      }).catch(err => { console.warn('Export with cuts failed', err); return null; });
+      if (res === 'cancelled' || job.cancelled) { status('Export cancelled.'); return; }
+      if (!res) { toast('This browser can’t export the cut version. Use Chrome or Edge on a computer, or remove the cuts (Ctrl+Z).', 8000); return; }
+      const name = `${S.file.name.replace(/\.[^.]+$/, '')}-${S.o.clip ? shortTag(range) : 'edited'}.mp4`;
+      download(res, name);
+      status(`Exported “${name}” (${fmtBytes(res.size)}, ${fmt(outLen)} after cuts) in ${((performance.now() - t0x) / 1000).toFixed(1)} s.${allSounds().length ? ' Sound effects aren’t in cut exports yet.' : ''}`);
+      window.__vczLastExport = 'cuts';
+      return;
+    }
     if (kind === 'video' && !window.__vczNoFast && !allSounds().some(f => f.t >= range.start && f.t < range.end)) {
       S.exportVia = 'fast';
       const bitrate = Math.round(Math.min(80e6, Math.max(srcBps * 1.5, size.w * size.h * 30 * 0.15, 4e6)));
@@ -2266,6 +2332,9 @@ function drawFrame() {
 function loop() {
   const t = drawFrame();
   if (S.mode === 'file' && isFinite(video.duration) && video.duration) {
+    // Playing through a cut: jump to its end, like the exported edit.
+    const cut = !video.paused && !S.exporting && cutAt(S.o.cuts, t);
+    if (cut) video.currentTime = Math.min(video.duration, cut.end + 0.01);
     const c = S.o.clip || S.o.trim;
     if (c && !S.exporting) {
       // A short plays only its own part, on a loop.

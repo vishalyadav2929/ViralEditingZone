@@ -20,7 +20,7 @@ export const LOOKS = {
   warm: { name: 'Warm', fn: (r, g, b) => [r * 1.06 + 0.025, g * 1.01 + 0.01, b * 0.9] },
   golden: { name: 'Golden Hour', fn: (r, g, b) => {
     const l = lum(r, g, b);
-    [r, g, b] = [r + 0.09 * l, g + 0.05 * l, b - 0.06 * l];
+    [r, g, b] = [r + 0.14 * l, g + 0.07 * l, b - 0.1 * l];
     return sat(scurve(r, 0.2), scurve(g, 0.2), scurve(b, 0.2), 1.12);
   } },
   moody: { name: 'Moody', fn: (r, g, b) => {

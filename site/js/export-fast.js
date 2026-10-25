@@ -95,3 +95,84 @@ export async function exportFast({ file, width, height, start = 0, end, draw, ca
     try { input.dispose && input.dispose(); } catch { /* already closed */ }
   }
 }
+
+/**
+ * Export only the kept parts of the video, joined (cuts taken out): frames are drawn at a constant
+ * rate and the sound is trimmed to the same parts, with a 30 ms fade at every join so cuts don't click.
+ * keep: [{ start, end }] in source seconds. draw(src, t, w, h) as in exportFast.
+ */
+export async function exportKeep({ file, width, height, keep, draw, canvas, bitrate, job, onProgress }) {
+  if (typeof VideoEncoder !== 'function' || typeof VideoDecoder !== 'function' || typeof AudioBuffer !== 'function') return null;
+  const M = await load();
+  const input = new M.Input({ source: new M.BlobSource(file), formats: M.ALL_FORMATS });
+  try {
+    const vt = await input.getPrimaryVideoTrack();
+    if (!vt || !(await vt.canDecode())) return null;
+    const want = ['avc', ...(self.__vczFastCodecs || [])];
+    let codec = null;
+    for (const c of want) if (await M.canEncodeVideo(c, { width, height, bitrate })) { codec = c; break; }
+    if (!codec) return null;
+    const at = await input.getPrimaryAudioTrack();
+    const acodec = (await M.canEncodeAudio('aac')) ? 'aac' : (await M.canEncodeAudio('opus')) ? 'opus' : null;
+    if (at && (!acodec || !(await at.canDecode()))) return null;
+    let fps = 30;
+    try { const st = await vt.computePacketStats(120); if (st && st.averagePacketRate > 0) fps = standardFps(st.averagePacketRate); } catch { /* keep 30 */ }
+
+    const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new M.BufferTarget() });
+    const vsrc = new M.CanvasSource(canvas, { codec, bitrate, keyFrameInterval: 1 });
+    output.addVideoTrack(vsrc, { frameRate: fps });
+    const asrc = at ? new M.AudioBufferSource({ codec: acodec, bitrate: 192000 }) : null;
+    if (asrc) output.addAudioTrack(asrc);
+    await output.start();
+    job.cancel = () => { job.cancelled = true; };
+
+    const vsink = new M.VideoSampleSink(vt), asink = at ? new M.AudioBufferSink(at) : null;
+    const total = keep.reduce((s, r) => s + r.end - r.start, 0);
+    let out = 0;
+    for (const r of keep) {
+      // Video: one frame every 1/fps of the kept part.
+      const n = Math.max(1, Math.round((r.end - r.start) * fps));
+      const times = Array.from({ length: n }, (_, k) => r.start + k / fps);
+      let k = 0;
+      for await (const sample of vsink.samplesAtTimestamps(times)) {
+        if (job.cancelled) { sample && sample.close(); return 'cancelled'; }
+        if (sample) { draw(sample.toCanvasImageSource(), times[k], sample.displayWidth, sample.displayHeight); sample.close(); }
+        await vsrc.add(out + k / fps, 1 / fps);
+        k++;
+        if (k % 15 === 0 && onProgress) onProgress((out + k / fps) / total, out + k / fps);
+      }
+      // Sound: the same part, cut exactly at its edges, faded in and out over 30 ms.
+      if (asink) {
+        const parts = [];
+        for await (const b of asink.buffers(r.start, r.end)) parts.push(b);
+        const buf = joinAudio(parts, r.start, r.end);
+        if (buf) await asrc.add(buf);
+      }
+      out += n / fps;
+    }
+    if (job.cancelled) return 'cancelled';
+    await output.finalize();
+    return new Blob([output.target.buffer], { type: 'video/mp4' });
+  } finally {
+    try { input.dispose && input.dispose(); } catch { /* already closed */ }
+  }
+}
+
+/** Audio chunks ({ buffer, timestamp }) → one AudioBuffer covering exactly start..end, with short fades. */
+function joinAudio(parts, start, end) {
+  if (!parts.length) return null;
+  const sr = parts[0].buffer.sampleRate, ch = parts[0].buffer.numberOfChannels;
+  const len = Math.max(1, Math.round((end - start) * sr));
+  const out = new AudioBuffer({ length: len, numberOfChannels: ch, sampleRate: sr });
+  for (let c = 0; c < ch; c++) {
+    const dst = out.getChannelData(c);
+    for (const p of parts) {
+      const src = p.buffer.getChannelData(Math.min(c, p.buffer.numberOfChannels - 1));
+      const off = Math.round((p.timestamp - start) * sr);
+      for (let i = Math.max(0, -off); i < src.length && off + i < len; i++) dst[off + i] = src[i];
+    }
+    const f = Math.min(Math.round(sr * 0.03), len >> 1);
+    for (let i = 0; i < f; i++) { dst[i] *= i / f; dst[len - 1 - i] *= i / f; }
+  }
+  return out;
+}

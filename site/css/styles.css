@@ -1054,3 +1054,12 @@ body.design #ltabClips, body.design #tabCaptions, body.design #ltabSnd, body.des
 .tl-dock .tl-bar { position: sticky; top: 0; z-index: 6; background: inherit; }
 .tc-add { position: absolute; left: 30px; top: 0; height: 20px; border: 1px dashed #7c3aed; background: transparent; color: #c4b5fd; border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; cursor: pointer; }
 .tc-add:disabled { opacity: .7; cursor: default; }
+
+/* Editor tools: every tool visible (wrap to a second row on desktop instead of hiding off the side) */
+@media (min-width: 1101px) {
+  #editor .tool-tabs { flex-wrap: wrap; overflow: visible; row-gap: 2px; }
+  #editor .tool-tab { flex: 1 0 52px; min-width: 52px; }
+}
+.tv-cut { position: absolute; top: 0; height: 44px; z-index: 2; border: 0; padding: 0; cursor: pointer; background: repeating-linear-gradient(45deg, rgba(239,68,68,.75) 0 6px, rgba(127,29,29,.75) 6px 12px); border-radius: 3px; }
+.tv-cut:hover { outline: 2px solid #fca5a5; }
+.tl-ai { background: linear-gradient(90deg, #7c3aed, #db2777) !important; color: #fff !important; border-color: transparent !important; }
