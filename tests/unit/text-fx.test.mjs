@@ -33,3 +33,8 @@ test('break apart: one plain text per line, with the role look, stacked around t
   assert.ok(p[0].y < 0.4 && p[1].y > 0.4);
   for (const x of p) { assert.equal(x.tpl, null); assert.equal(x.start, 1); assert.equal(x.end, 4); assert.equal(x.x, 0.3); assert.equal(x.anim, 'slide-left'); }
 });
+
+test('export frame rate snaps to a standard one', async () => {
+  const { standardFps } = await import('../../site/js/export-fast.js');
+  assert.deepEqual([29.7, 30.02, 26.4, 59.4, 55, 24.1, 25.2, 47, 14].map(standardFps), [30, 30, 30, 60, 60, 24, 25, 50, 24]);
+});
