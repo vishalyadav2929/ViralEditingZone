@@ -1591,6 +1591,34 @@ await step('animation off means nothing moves in any style; empty captions track
   await ctx.close();
 });
 
+await step('paused on a caption’s first frame: the caption shows fully and style changes show at once; whole video fits the timeline', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'long16x9.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.setInputFiles('#srtIn', join(FIX, 'long16x9.srt'));
+  await m.waitForFunction(() => window.__vcz.S.segments.length > 0);
+  await m.waitForTimeout(400);
+  const visible = await m.evaluate(() => { const s = document.querySelector('.tl-scroll').getBoundingClientRect(); return [...document.querySelectorAll('.tc')].every(e => { const r = e.getBoundingClientRect(); return r.left >= s.left - 1 && r.right <= s.right + 1; }); });
+  assert.equal(visible, true, 'every caption is in view without scrolling');
+  // Jump exactly to a caption's start (what clicking a caption does), paused.
+  await m.evaluate(async () => { const { S, video } = window.__vcz; video.currentTime = S.segments[3].start; await new Promise(r => video.addEventListener('seeked', r, { once: true })); });
+  await m.waitForTimeout(300);
+  const white = () => m.evaluate(() => { const c = document.getElementById('stage'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240) n++; return n; });
+  const a = await white();
+  assert.ok(a > 500, `caption visible while paused at its start: ${a}`);
+  await m.click('#tabStyle');
+  await m.evaluate(() => { const el = document.getElementById('size'); el.value = 170; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
+  await m.waitForTimeout(300);
+  const b = await white();
+  assert.ok(b > a * 1.5, `bigger size shows at once: ${a} → ${b}`);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

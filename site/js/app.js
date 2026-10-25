@@ -2238,7 +2238,8 @@ function drawFrame() {
       ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(fs * 0.6, fs * 0.6, w, fs * 1.6);
       ctx.fillStyle = '#fff'; ctx.fillText(label, fs * 1.1, fs * 0.9); ctx.restore();
     } else {
-      drawCaption(ctx, canvas.width, canvas.height, findChunk(fileChunks(), t), t, t0, opts);
+      // Paused (editing): show the caption fully, so style changes are visible right away.
+      drawCaption(ctx, canvas.width, canvas.height, findChunk(fileChunks(), t), t, t0, video.paused ? { ...opts, settled: true } : opts);
     }
     S.textBoxes = drawTexts(ctx, canvas.width, canvas.height, t);
     drawTextSelection();
