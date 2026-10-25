@@ -12,7 +12,7 @@ export function mountTimeline(root, api) {
   root.innerHTML = `
     <div class="tl-bar">
       <span class="tl-title">Timeline</span>
-      <span class="tl-acts"><button type="button" data-act="split" title="Split the caption at the playhead">✂ Split</button><button type="button" data-act="del" title="Delete the selected word, caption, text or sound">🗑 Delete</button></span>
+      <span class="tl-acts"><button type="button" data-act="auto" class="tl-ai" title="Cut pauses, remove umm/uh, style the captions and add a hook">✨ Auto edit</button><button type="button" data-act="silence" title="Cut the silent parts out of the video">🔇 Cut silences</button><button type="button" data-act="split" title="Split the caption at the playhead">✂ Split</button><button type="button" data-act="del" title="Delete the selected word, caption, text or sound">🗑 Delete</button></span>
       <div class="tl-pos" role="group" aria-label="Caption position">
         <button type="button" data-pos="0.2">Top</button><button type="button" data-pos="0.5">Middle</button><button type="button" data-pos="0.78">Bottom</button>
       </div>
@@ -68,6 +68,8 @@ export function mountTimeline(root, api) {
   root.querySelector('.tl-acts').onclick = e => {
     const act = e.target.closest('button') && e.target.closest('button').dataset.act;
     if (act === 'split') api.splitAt(api.time());
+    if (act === 'silence') api.autoCut();
+    if (act === 'auto') api.autoEdit();
     if (act === 'del') {
       if (sfxSel != null) { const i = sfxSel; sfxSel = null; api.deleteSound(i); }
       else if (sel) { const [si, wi] = sel; sel = null; api.selectWord && api.selectWord(null); api.deleteWord(si, wi); }
@@ -82,7 +84,7 @@ export function mountTimeline(root, api) {
 
   // Click on empty timeline → jump there.
   inner.addEventListener('click', e => {
-    if (e.target.closest('.tw, .tc, .ttx, .tv-h')) return;
+    if (e.target.closest('.tw, .tc, .ttx, .tv-h, .tv-cut')) return;
     const x = e.clientX - inner.getBoundingClientRect().left;
     api.seek(Math.max(0, x / pps));
   });
@@ -238,6 +240,15 @@ export function mountTimeline(root, api) {
     drawFilm();
     if (!videoRow.querySelector('.tl-lab')) label(videoRow, '🎬', 'Video');
     videoRow.querySelector('.tv-name').textContent = `${m.name} · ${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}`;
+    // Cut parts: red, skipped when playing and left out of the export; click one to bring it back.
+    videoRow.querySelectorAll('.tv-cut').forEach(x => x.remove());
+    (api.cuts ? api.cuts() : []).forEach((c, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'tv-cut';
+      b.style.left = `${c.start * pps}px`; b.style.width = `${Math.max(3, (c.end - c.start) * pps)}px`;
+      b.title = `Cut ${c.start.toFixed(1)}–${c.end.toFixed(1)} s · click to bring it back`;
+      b.onclick = e => { e.stopPropagation(); api.removeCut(i); };
+      videoRow.appendChild(b);
+    });
     const tr = (api.trim && api.trim()) || { start: 0, end: dur };
     const [dl, dr, hl, hr] = ['.tv-dim.l', '.tv-dim.r', '.tv-h.l', '.tv-h.r'].map(s => videoRow.querySelector(s));
     dl.style.width = `${tr.start * pps}px`;
