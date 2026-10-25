@@ -788,7 +788,7 @@ body.studio .props .ptab { font-size: 13px; white-space: nowrap; padding: 10px 6
 .dash-tool.hot em { background: #be185d; color: #fff; }
 .clip-opts { margin-top: 4px; }
 .clip-find { width: 100%; }
-.clip-note { font-size: 12.5px; color: var(--muted); margin: 8px 0; }
+.clip-note { font-size: 12.5px; color: var(--muted); margin: 8px 0; white-space: pre-line; }
 .clip-note:empty { display: none; }
 .clip-list { display: grid; gap: 10px; }
 .clip-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--card); display: grid; gap: 6px; }

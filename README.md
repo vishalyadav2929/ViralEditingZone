@@ -112,7 +112,7 @@ npm run test:asr       # real Whisper on a speech clip: accuracy, timing, progre
 
 **Custom domain (later):** **Domain management → Add a domain**, enter it, then either point your registrar's nameservers to Netlify DNS or add the CNAME/A records Netlify shows. HTTPS is issued automatically.
 
-No environment variables or API keys are needed for the site to work. `GROQ_API_KEY` (optional) switches on Fast mode captions **and** AI hooks for Shorts.
+No environment variables or API keys are needed for the site to work. `GROQ_API_KEY` (optional) switches on Fast mode captions **and** AI hooks for Shorts. `ANTHROPIC_API_KEY` (optional) switches on AI edit by Claude.
 
 ### Optional: Fast mode (instant, more accurate captions)
 
@@ -123,6 +123,16 @@ On-device captions take ~20–40 s on a phone and small models struggle with Hin
 3. **Deploys → Trigger deploy**.
 
 Visitors then see "⚡ Fast mode" ticked under *More options* (they can untick it to stay fully on-device). If the free quota runs out or the server is unreachable, the site falls back to on-device captions automatically. The function only answers requests from the site's own pages. Remove the variable to switch it off again.
+
+### Optional: AI edit by Claude
+
+With `ANTHROPIC_API_KEY` set, a **🤖 AI edit** button appears on the timeline. `netlify/functions/ai-edit.mjs` sends the timed caption text (never audio or video) to Claude, which plans the edit: bad takes, repeats and rambling to cut, a hook, key words to colour, up to 5 Shorts, and a YouTube title and description. The editor applies the plan with its own tools, so everything stays editable and one Ctrl+Z undoes it. Without the key the button stays hidden.
+
+1. **console.anthropic.com** → **API Keys** → **Create key**. Under **Billing → Limits**, set a monthly spend limit: this is the real protection on a public site.
+2. Netlify → **Project configuration → Environment variables**: key `ANTHROPIC_API_KEY`, scope Functions. Optional: `AI_EDIT_PER_USER` (edits per visitor per day, default 5) and `AI_EDIT_PER_DAY` (site total per day, default 200).
+3. **Deploys → Trigger deploy**.
+
+Limits built in: only the site's own pages may call it, daily caps counted in Netlify Blobs, and transcripts up to 400 caption lines.
 
 ### Install as an app
 

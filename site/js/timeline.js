@@ -12,7 +12,7 @@ export function mountTimeline(root, api) {
   root.innerHTML = `
     <div class="tl-bar">
       <span class="tl-title">Timeline</span>
-      <span class="tl-acts"><button type="button" data-act="auto" class="tl-ai" title="Cut pauses, remove umm/uh, style the captions and add a hook">✨ Auto edit</button><button type="button" data-act="silence" title="Cut the silent parts out of the video">🔇 Cut silences</button><button type="button" data-act="split" title="Split the caption at the playhead">✂ Split</button><button type="button" data-act="del" title="Delete the selected word, caption, text or sound">🗑 Delete</button></span>
+      <span class="tl-acts"><button type="button" data-act="claude" class="tl-ai tl-claude" hidden title="Claude reads what is said and cuts bad takes, repeats and rambling, adds a hook, highlights key words and picks Shorts">🤖 AI edit</button><button type="button" data-act="auto" class="tl-ai" title="Cut pauses, remove umm/uh, style the captions and add a hook">✨ Auto edit</button><button type="button" data-act="silence" title="Cut the silent parts out of the video">🔇 Cut silences</button><button type="button" data-act="split" title="Split the caption at the playhead">✂ Split</button><button type="button" data-act="del" title="Delete the selected word, caption, text or sound">🗑 Delete</button></span>
       <div class="tl-pos" role="group" aria-label="Caption position">
         <button type="button" data-pos="0.2">Top</button><button type="button" data-pos="0.5">Middle</button><button type="button" data-pos="0.78">Bottom</button>
       </div>
@@ -70,6 +70,7 @@ export function mountTimeline(root, api) {
     if (act === 'split') api.splitAt(api.time());
     if (act === 'silence') api.autoCut();
     if (act === 'auto') api.autoEdit();
+    if (act === 'claude') api.claudeEdit();
     if (act === 'del') {
       if (sfxSel != null) { const i = sfxSel; sfxSel = null; api.deleteSound(i); }
       else if (sel) { const [si, wi] = sel; sel = null; api.selectWord && api.selectWord(null); api.deleteWord(si, wi); }

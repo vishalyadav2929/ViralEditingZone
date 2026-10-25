@@ -577,6 +577,7 @@ var timeline = mountTimeline($('timeline'), {
   removeCut: i => { S.o.cuts = (S.o.cuts || []).filter((_, k) => k !== i); commit(); timeline.render(); toast('Cut removed: that part is back.'); },
   autoCut: () => removeSilences(),
   autoEdit: () => autoEdit(),
+  claudeEdit: () => claudeEdit(),
   setTrim: (start, end, save) => {
     const d = video.duration || 0;
     S.o.trim = start <= 0.05 && end >= d - 0.05 ? null : { start: +start.toFixed(2), end: +end.toFixed(2) };
@@ -1006,6 +1007,60 @@ function autoEdit() {
   commit(); renderTextUI(); timeline.render();
   if (!S.segments.length && !genRunning) { toast(`${done.length ? `Done: ${done.join(', ')}. ` : ''}Make captions too (✨ Auto captions) and press Auto edit again for umm/uh, style and a hook.`, 8000); return; }
   toast(done.length ? `Auto edit: ${done.join(' · ')}. Everything stays editable; Ctrl+Z undoes.` : 'Nothing to change: no long pauses or umm/uh found.', 8000);
+}
+// AI edit by Claude (only when the site owner has set it up; sends caption text, never media).
+const claudeOn = () => (window.__vczNoCloud ? Promise.resolve(false) : fetch('api/ai-edit', { cache: 'no-store' }).then(r => (r.ok ? r.json() : {})).then(j => !!j.enabled).catch(() => false));
+claudeOn().then(on => { const b = document.querySelector('#timeline [data-act="claude"]'); if (b) b.hidden = !on; });
+let claudeBusy = false;
+async function claudeEdit() {
+  if (!S.file || S.image) return toast('Open a video first.');
+  if (!S.segments.length) return toast(genRunning ? 'Captions are still being made. Press AI edit when they’re done.' : 'Make captions first (✨ Auto captions): AI edit reads what is said.', 6000);
+  if (claudeBusy || S.exporting) return;
+  const btn = document.querySelector('#timeline [data-act="claude"]');
+  claudeBusy = true; if (btn) { btn.disabled = true; btn.textContent = '🤖 Editing…'; }
+  toast('Claude is watching the transcript and planning the edit…', 60000);
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
+  try {
+    const lines = S.segments.map(s => ({ start: s.start, end: s.end, text: s.text || (s.words || []).map(w => w.text).join(' ') }));
+    const r = await fetch('api/ai-edit', { method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctl.signal, body: JSON.stringify({ lines }) });
+    const plan = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(plan.error || 'AI edit failed. Try again.', 7000);
+    applyAiPlan(plan);
+  } catch { toast('AI edit took too long or the network dropped. Try again.', 7000); } finally {
+    clearTimeout(timer); claudeBusy = false; if (btn) { btn.disabled = false; btn.textContent = '🤖 AI edit'; }
+  }
+}
+/** Apply Claude's plan with the editor's own tools: cuts, a hook title, coloured key words, Shorts. One undo step. */
+function applyAiPlan(plan) {
+  const d = video.duration || Infinity, done = [];
+  const cuts = (plan.cuts || []).filter(c => c.end > c.start);
+  if (cuts.length) {
+    const before = keptLength(S.o.cuts, 0, d);
+    S.o.cuts = mergeCuts([...(S.o.cuts || []), ...cuts], d);
+    done.push(`${cuts.length} bad take${cuts.length > 1 ? 's' : ''}/repeat${cuts.length > 1 ? 's' : ''} cut (${(before - keptLength(S.o.cuts, 0, d)).toFixed(1)} s)`);
+  }
+  if (plan.hook) {
+    const hook = texts().find(l => l.hook && !l.part);
+    if (hook) hook.text = plan.hook;
+    else S.o.texts = [...texts(), newLayer({ text: plan.hook, start: 0, end: 3, x: 0.5, y: 0.16, size: 0.07, font: 'Montserrat', bold: true, strokeW: 0.14, hook: true, anim: 'pop' })];
+    done.push('hook');
+  }
+  const norm = w => String(w).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const hi = new Set((plan.highlights || []).map(norm).filter(Boolean));
+  let n = 0;
+  if (hi.size) {
+    for (const s of S.segments) for (const w of s.words || []) if (!w.color && hi.has(norm(w.text))) { w.color = '#FFE600'; n++; }
+    if (n) { renderSegs(); done.push(`${n} key word${n > 1 ? 's' : ''} highlighted`); }
+  }
+  if ((plan.shorts || []).length) {
+    S.o.found = plan.shorts.map((c, i) => ({ start: c.start, end: c.end, title: c.title, hooks: [c.title], score: 95 - i * 3, why: ['Claude pick'], ai: true,
+      text: S.segments.filter(s => s.end > c.start && s.start < c.end).map(s => s.text || (s.words || []).map(w => w.text).join(' ')).join(' ') }));
+    renderClipUI();
+    done.push(`${plan.shorts.length} Shorts picked (Clips tab)`);
+  }
+  if (plan.title || plan.description) $('clipNote').textContent = `Claude’s YouTube title: ${plan.title || '-'}\n${plan.description || ''}`;
+  commit(); renderTextUI(); timeline.render();
+  toast(done.length ? `AI edit: ${done.join(' · ')}. Everything stays editable; Ctrl+Z undoes.` : 'Claude found nothing worth cutting. Your video is already tight.', 9000);
 }
 function seekTo(t) { if (S.mode === 'file' && video.src) video.currentTime = Math.max(0, t + 0.01); }
 
