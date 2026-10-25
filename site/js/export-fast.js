@@ -19,6 +19,13 @@ const load = () => lib || (lib = import('./vendor/mediabunny.js'));
  *   onProgress(p, t)
  * @returns {Promise<Blob|'cancelled'|null>}
  */
+/** A standard frame rate (24, 25, 30, 50, 60) for a measured average one. */
+export function standardFps(r) {
+  if (r > 25.5 && r < 31) return 30; // a 30 fps phone video with some slow stretches stays 30
+  if (r > 50.5 && r < 61) return 60;
+  return [24, 25, 30, 50, 60].reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a), 30);
+}
+
 export async function exportFast({ file, width, height, start = 0, end, draw, canvas, bitrate, job, onProgress }) {
   if (typeof VideoEncoder !== 'function' || typeof VideoDecoder !== 'function') return null;
   const M = await load();
@@ -38,13 +45,17 @@ export async function exportFast({ file, width, height, start = 0, end, draw, ca
     const acodec = (await M.canEncodeAudio('aac')) ? 'aac' : (await M.canEncodeAudio('opus')) ? 'opus' : null;
     const hasAudio = !!(await input.getPrimaryAudioTrack());
     if (hasAudio && !acodec) return null;
+    // Phones record at a variable frame rate; players and Instagram stutter on uneven frames. Export at a
+    // constant rate (the source's own, rounded to a standard one) with a keyframe every second.
+    let fps = 30;
+    try { const st = await vt.computePacketStats(120); if (st && st.averagePacketRate > 0) fps = standardFps(st.averagePacketRate); } catch { /* keep 30 */ }
     const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new M.BufferTarget() });
     let firstTs = null;
     const conversion = await M.Conversion.init({
       input, output,
       trim: { start, end },
       video: {
-        codec, bitrate, forceTranscode: true, processedWidth: width, processedHeight: height,
+        codec, bitrate, forceTranscode: true, processedWidth: width, processedHeight: height, frameRate: fps, keyFrameInterval: 1,
         process: sample => {
           // Timestamps may be relative to the trim start: work out the media time either way.
           if (firstTs == null) firstTs = sample.timestamp;
