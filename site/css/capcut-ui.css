@@ -1,0 +1,60 @@
+/* CapCut-style UI shell for Viral Editing Zone — PATCH ONLY.
+   Load AFTER css/styles.css. This file changes LAYOUT/LOOK only.
+   It must NOT change caption typography, colours or rendering:
+   templates.js / renderer.js / captions.js are untouched by design.
+   Rollback: remove this file + capcut-shell.js from app.html and the
+   old editor returns, because styles.css / app.js were never edited. */
+
+/* ---- Top bar: CapCut-style dark compact bar ---- */
+.capcut-shell .editor-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 12px; background: #111; color: #fff;
+  position: sticky; top: 0; z-index: 30;
+}
+.capcut-shell .editor-topbar .export-cta {
+  background: #fff; color: #111; border-radius: 999px;
+  padding: 9px 20px; font-weight: 800; border: 0; cursor: pointer;
+}
+
+/* ---- Desktop: left icon rail (existing tool-tabs, restyled) ---- */
+@media (min-width: 761px) {
+  .capcut-shell .tool-tabs {
+    display: flex; flex-direction: column; gap: 2px;
+    width: 72px; flex: 0 0 72px;
+  }
+  .capcut-shell .tool-tab {
+    flex-direction: column; font-size: 11px; padding: 10px 4px;
+    border-radius: 10px; text-align: center;
+  }
+  .capcut-shell .tool-tab.on { background: #111; color: #fff; }
+  /* Centre preview stays the same canvas; only its frame is cleaner */
+  .capcut-shell #stage { border-radius: 12px; background: #000; }
+}
+
+/* ---- Mobile (<=760px): CapCut bottom toolbar + bottom-sheet panels ---- */
+@media (max-width: 760px) {
+  .capcut-shell .capcut-bottombar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; gap: 4px; overflow-x: auto; padding: 8px 10px 12px;
+    background: #111; color: #fff; scrollbar-width: none;
+  }
+  .capcut-shell .capcut-bottombar::-webkit-scrollbar { display: none; }
+  .capcut-shell .capcut-bottombar .tool-tab {
+    flex: 0 0 auto; flex-direction: column; font-size: 11px;
+    padding: 8px 12px; border-radius: 12px; background: transparent; color: #fff;
+  }
+  .capcut-shell .capcut-bottombar .tool-tab.on { background: #fff; color: #111; }
+  /* A panel opened from the bottom bar becomes a bottom sheet */
+  .capcut-shell .panel-b.sheet-open {
+    position: fixed; left: 0; right: 0; bottom: 62px; z-index: 39;
+    max-height: 55vh; overflow-y: auto; border-radius: 20px 20px 0 0;
+    background: #fff; box-shadow: 0 -8px 30px rgba(0,0,0,.25); padding: 16px;
+  }
+  .capcut-shell .capcut-soon {
+    opacity: .45; position: relative;
+  }
+  .capcut-shell .capcut-soon::after {
+    content: "Soon"; font-size: 10px; background: #6d28d9; color: #fff;
+    border-radius: 999px; padding: 1px 6px; margin-left: 6px;
+  }
+}
