@@ -5,6 +5,7 @@
 const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
 
 function buildBottomBar() {
+  document.body.classList.add('capcut-shell');
   // Find the editor's existing tool tabs (Media, Clips, Captions, Text, ...)
   const tabs = document.querySelector('.tool-tabs');
   if (!tabs || document.querySelector('.capcut-bottombar')) return;
