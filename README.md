@@ -112,7 +112,7 @@ npm run test:asr       # real Whisper on a speech clip: accuracy, timing, progre
 
 **Custom domain (later):** **Domain management → Add a domain**, enter it, then either point your registrar's nameservers to Netlify DNS or add the CNAME/A records Netlify shows. HTTPS is issued automatically.
 
-No environment variables or API keys are needed for the site to work. `GROQ_API_KEY` (optional) switches on Fast mode captions **and** AI hooks for Shorts. `ANTHROPIC_API_KEY` (optional) switches on AI edit by Claude.
+No environment variables or API keys are needed for the site to work. `GROQ_API_KEY` (optional) switches on Fast mode captions **and** AI hooks for Shorts. `GROQ_API_KEY` or `ANTHROPIC_API_KEY` (optional) switches on AI edit.
 
 ### Optional: Fast mode (instant, more accurate captions)
 
@@ -124,13 +124,16 @@ On-device captions take ~20–40 s on a phone and small models struggle with Hin
 
 Visitors then see "⚡ Fast mode" ticked under *More options* (they can untick it to stay fully on-device). If the free quota runs out or the server is unreachable, the site falls back to on-device captions automatically. The function only answers requests from the site's own pages. Remove the variable to switch it off again.
 
-### Optional: AI edit by Claude
+### Optional: AI edit
 
-With `ANTHROPIC_API_KEY` set, a **🤖 AI edit** button appears on the timeline. `netlify/functions/ai-edit.mjs` sends the timed caption text (never audio or video) to Claude, which plans the edit: bad takes, repeats and rambling to cut, a hook, key words to colour, up to 5 Shorts, and a YouTube title and description. The editor applies the plan with its own tools, so everything stays editable and one Ctrl+Z undoes it. Without the key the button stays hidden.
+With a key set, a **🤖 AI edit** button appears on the timeline. `netlify/functions/ai-edit.mjs` sends the timed caption text (never audio or video) to an AI, which plans the edit: bad takes, repeats and rambling to cut, a hook, key words to colour, up to 5 Shorts, and a YouTube title and description. The editor applies the plan with its own tools, so everything stays editable and one Ctrl+Z undoes it. Without a key the button stays hidden.
 
-1. **console.anthropic.com** → **API Keys** → **Create key**. Under **Billing → Limits**, set a monthly spend limit: this is the real protection on a public site.
-2. Netlify → **Project configuration → Environment variables**: key `ANTHROPIC_API_KEY`, scope Functions. Optional: `AI_EDIT_PER_USER` (edits per visitor per day, default 5) and `AI_EDIT_PER_DAY` (site total per day, default 200).
-3. **Deploys → Trigger deploy**.
+Two engines — whichever key you set (Claude is used when both are present):
+
+- **Free: `GROQ_API_KEY`** — the same free-tier key as Fast mode (console.groq.com). Nothing extra to pay; good edits.
+- **Best: `ANTHROPIC_API_KEY`** — Claude (console.anthropic.com → API Keys → Create key). Pay-per-use, so under **Billing → Limits** set a monthly spend limit — that is the real protection on a public site.
+
+Then: Netlify → **Project configuration → Environment variables** → add the key, scope Functions, and **Deploys → Trigger deploy**. Optional: `AI_EDIT_PER_USER` (edits per visitor per day, default 5) and `AI_EDIT_PER_DAY` (site total per day, default 200).
 
 Limits built in: only the site's own pages may call it, daily caps counted in Netlify Blobs, and transcripts up to 400 caption lines.
 

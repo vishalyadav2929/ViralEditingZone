@@ -1018,7 +1018,7 @@ async function claudeEdit() {
   if (claudeBusy || S.exporting) return;
   const btn = document.querySelector('#timeline [data-act="claude"]');
   claudeBusy = true; if (btn) { btn.disabled = true; btn.textContent = '🤖 Editing…'; }
-  toast('Claude is watching the transcript and planning the edit…', 60000);
+  toast('AI is reading the transcript and planning the edit…', 60000);
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
   try {
     const lines = S.segments.map(s => ({ start: s.start, end: s.end, text: s.text || (s.words || []).map(w => w.text).join(' ') }));
@@ -1053,12 +1053,12 @@ function applyAiPlan(plan) {
     if (n) { renderSegs(); done.push(`${n} key word${n > 1 ? 's' : ''} highlighted`); }
   }
   if ((plan.shorts || []).length) {
-    S.o.found = plan.shorts.map((c, i) => ({ start: c.start, end: c.end, title: c.title, hooks: [c.title], score: 95 - i * 3, why: ['Claude pick'], ai: true,
+    S.o.found = plan.shorts.map((c, i) => ({ start: c.start, end: c.end, title: c.title, hooks: [c.title], score: 95 - i * 3, why: ['AI pick'], ai: true,
       text: S.segments.filter(s => s.end > c.start && s.start < c.end).map(s => s.text || (s.words || []).map(w => w.text).join(' ')).join(' ') }));
     renderClipUI();
     done.push(`${plan.shorts.length} Shorts picked (Clips tab)`);
   }
-  if (plan.title || plan.description) $('clipNote').textContent = `Claude’s YouTube title: ${plan.title || '-'}\n${plan.description || ''}`;
+  if (plan.title || plan.description) $('clipNote').textContent = `AI YouTube title: ${plan.title || '-'}\n${plan.description || ''}`;
   commit(); renderTextUI(); timeline.render();
   toast(done.length ? `AI edit: ${done.join(' · ')}. Everything stays editable; Ctrl+Z undoes.` : 'Claude found nothing worth cutting. Your video is already tight.', 9000);
 }

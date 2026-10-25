@@ -47,17 +47,20 @@ test('schema is strict enough for structured outputs', () => {
   assert.equal(SCHEMA.properties.cuts.items.additionalProperties, false);
 });
 
-test('off without a key; other sites and empty transcripts are refused before any AI call', async () => {
+test('off without a key; either engine switches it on; other sites and empty transcripts refused first', async () => {
   const { default: handler } = await import('../../netlify/functions/ai-edit.mjs');
   const url = 'https://viral.example/api/ai-edit';
-  delete process.env.ANTHROPIC_API_KEY;
-  assert.deepEqual(await (await handler(new Request(url))).json(), { enabled: false });
-  process.env.ANTHROPIC_API_KEY = 'test-key';
+  delete process.env.ANTHROPIC_API_KEY; delete process.env.GROQ_API_KEY;
+  assert.deepEqual(await (await handler(new Request(url))).json(), { enabled: false, engine: null });
   try {
-    assert.deepEqual(await (await handler(new Request(url))).json(), { enabled: true });
+    // Groq alone turns it on; Claude wins when both are set.
+    process.env.GROQ_API_KEY = 'g';
+    assert.deepEqual(await (await handler(new Request(url))).json(), { enabled: true, engine: 'groq' });
+    process.env.ANTHROPIC_API_KEY = 'a';
+    assert.deepEqual(await (await handler(new Request(url))).json(), { enabled: true, engine: 'claude' });
     const post = (origin, body) => handler(new Request(url, { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(body) }), { ip: '1.2.3.4' });
     assert.equal((await post('https://evil.example', { lines })).status, 403);
     assert.equal((await post('https://viral.example', { lines: [] })).status, 400);
     assert.equal((await post('https://viral.example', { lines: Array.from({ length: 500 }, (_, i) => ({ start: i, end: i + 1, text: 'x' })) })).status, 413);
-  } finally { delete process.env.ANTHROPIC_API_KEY; }
+  } finally { delete process.env.ANTHROPIC_API_KEY; delete process.env.GROQ_API_KEY; }
 });
