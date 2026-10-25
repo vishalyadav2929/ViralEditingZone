@@ -40,6 +40,34 @@ export function animState(anim, t, start, end, dur = 0.45) {
   return s;
 }
 
+const lerp = (a, b, u) => a + (b - a) * u;
+/**
+ * Position of a text at time t from its motion keyframes (free movement across the frame).
+ * Keyframes are {t, x, y} (x, y are fractions of the frame). Returns {x, y} eased between the two
+ * surrounding keyframes, or null when there are no keyframes. Before the first / after the last it holds.
+ */
+export function kfSample(kf, t) {
+  const s = (kf || []).filter(k => Number.isFinite(k.t) && Number.isFinite(k.x) && Number.isFinite(k.y)).sort((a, b) => a.t - b.t);
+  if (!s.length) return null;
+  if (t <= s[0].t) return { x: s[0].x, y: s[0].y };
+  const last = s[s.length - 1];
+  if (t >= last.t) return { x: last.x, y: last.y };
+  for (let i = 1; i < s.length; i++) {
+    if (t <= s[i].t) {
+      const a = s[i - 1], b = s[i], u = (t - a.t) / ((b.t - a.t) || 1), e = u * u * (3 - 2 * u); // smoothstep
+      return { x: lerp(a.x, b.x, e), y: lerp(a.y, b.y, e) };
+    }
+  }
+  return { x: last.x, y: last.y };
+}
+
+/** Add or replace a keyframe near time t (within `snap` seconds). Returns a new, sorted keyframe list. */
+export function upsertKf(kf, t, x, y, snap = 0.08) {
+  const out = (kf || []).filter(k => Math.abs(k.t - t) > snap);
+  out.push({ t: +(+t).toFixed(2), x: +(+x).toFixed(4), y: +(+y).toFixed(4) });
+  return out.sort((a, b) => a.t - b.t);
+}
+
 // Template entry animations → the closest text animation.
 const TPL_ANIM = { pop: 'pop', bounce: 'bounce', slide: 'slide-left', rise: 'slide-up', zoom: 'zoom', fade: 'fade', type: 'type', none: 'none' };
 

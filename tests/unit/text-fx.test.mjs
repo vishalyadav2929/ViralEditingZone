@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animState, templateLines, breakApart } from '../../site/js/text-fx.js';
+import { animState, templateLines, breakApart, kfSample, upsertKf } from '../../site/js/text-fx.js';
 import { TEMPLATES } from '../../site/js/templates.js';
 
 test('animations start hidden or moved and end at rest', () => {
@@ -37,4 +37,24 @@ test('break apart: one plain text per line, with the role look, stacked around t
 test('export frame rate snaps to a standard one', async () => {
   const { standardFps } = await import('../../site/js/export-fast.js');
   assert.deepEqual([29.7, 30.02, 26.4, 59.4, 55, 24.1, 25.2, 47, 14].map(standardFps), [30, 30, 30, 60, 60, 24, 25, 50, 24]);
+});
+
+test('keyframes: holds before first and after last, eases between', () => {
+  const kf = [{ t: 1, x: 0.2, y: 0.2 }, { t: 3, x: 0.8, y: 0.6 }];
+  assert.deepEqual(kfSample(kf, 0), { x: 0.2, y: 0.2 });
+  assert.deepEqual(kfSample(kf, 5), { x: 0.8, y: 0.6 });
+  const mid = kfSample(kf, 2); // halfway in time → smoothstep gives the exact midpoint
+  assert.ok(Math.abs(mid.x - 0.5) < 1e-9 && Math.abs(mid.y - 0.4) < 1e-9, JSON.stringify(mid));
+  assert.equal(kfSample([], 1), null);
+  assert.equal(kfSample(undefined, 1), null);
+});
+
+test('upsertKf adds, replaces a near one, and stays sorted', () => {
+  let kf = upsertKf(undefined, 2, 0.5, 0.5);
+  assert.deepEqual(kf, [{ t: 2, x: 0.5, y: 0.5 }]);
+  kf = upsertKf(kf, 1, 0.1, 0.1);
+  assert.deepEqual(kf.map(k => k.t), [1, 2]);
+  kf = upsertKf(kf, 2.03, 0.9, 0.9); // within snap → replaces the t=2 one
+  assert.equal(kf.length, 2);
+  assert.deepEqual(kf[1], { t: 2.03, x: 0.9, y: 0.9 });
 });

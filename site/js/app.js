@@ -14,7 +14,7 @@ import { mountTimeline, wavePeaks } from './timeline.js';
 import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
 import { TEXT_FONTS, newLayer, drawLayer, layersAt, hitLayer, layout } from './text-layers.js';
 import { findClips, cropRect, ASPECTS, aspectSize } from './clips.js';
-import { TEXT_ANIMS, animState, breakApart } from './text-fx.js';
+import { TEXT_ANIMS, animState, breakApart, kfSample, upsertKf } from './text-fx.js';
 import { youtubeId, titleCheck } from './grow.js';
 import { seriesOrder, partOf, partLabel, seriesCaptions } from './series.js';
 import { SIZES, OVERLAYS, THUMBS, photoRect, drawOverlay } from './thumbs.js';
@@ -662,6 +662,10 @@ function renderTextUI() {
   $('txtBold').setAttribute('aria-pressed', !!L.bold); $('txtItalic').setAttribute('aria-pressed', !!L.italic); $('txtOneLine').setAttribute('aria-pressed', !!L.oneLine);
   $('txtAlign').querySelectorAll('button').forEach(b => { const on = b.dataset.v === L.align; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
   $('txtColor').value = L.color; $('txtShadow').checked = !!L.shadow;
+  $('txtGlow').checked = !!L.glow;
+  { const op = Math.round((L.op != null ? L.op : 1) * 100); $('txtOpacity').value = op; $('txtOpacityVal').textContent = `${op}%`; }
+  { const s = Math.round((L.shadowS != null ? L.shadowS : 1) * 100); $('txtShadowS').value = s; $('txtShadowSVal').textContent = `${s}%`; }
+  { const n = (L.kf || []).length; $('txtKfCount').textContent = n ? `· ${n} point${n > 1 ? 's' : ''}` : ''; $('txtKfClear').hidden = !n; }
   $('txtStroke').value = L.stroke; $('txtStrokeW').value = Math.round(L.strokeW * 100); $('txtStrokeWVal').textContent = $('txtStrokeW').value;
   $('txtBg').value = L.bg; $('txtBgOp').value = L.bgOp; $('txtBgOpVal').textContent = `${L.bgOp}%`;
   if (document.activeElement !== $('txtStart')) $('txtStart').value = fmtT(L.start);
@@ -748,7 +752,20 @@ tbind('txtBg', 'bg', el => el.value);
 tbind('txtBgOp', 'bgOp', el => +el.value);
 $('txtStroke').addEventListener('input', () => { const L = curText(); if (L && !L.strokeW) patchText({ strokeW: 0.12 }, false); });
 $('txtBg').addEventListener('input', () => { const L = curText(); if (L && !L.bgOp) patchText({ bgOp: 70 }, false); });
+tbind('txtOpacity', 'op', el => +el.value / 100);
+tbind('txtShadowS', 'shadowS', el => +el.value / 100);
 $('txtShadow').onchange = e => patchText({ shadow: e.target.checked });
+$('txtGlow').onchange = e => patchText({ glow: e.target.checked });
+// Motion keyframes: mark where the text is at the playhead; move the playhead and drag it to a new spot.
+$('txtKfAdd').onclick = () => {
+  const L = curText(); if (!L) return;
+  const t = S.image ? 0 : video.currentTime || 0;
+  const at = L.kf && L.kf.length ? kfSample(L.kf, t) : null;
+  L.kf = upsertKf(L.kf, t, at ? at.x : L.x, at ? at.y : L.y);
+  commit(); renderTextUI();
+  toast(L.kf.length < 2 ? 'Keyframe added. Now move the playhead and drag the text to a new spot.' : `${L.kf.length} keyframes — the text now moves between them. Drag it at any time to add more.`, 6000);
+};
+$('txtKfClear').onclick = () => { const L = curText(); if (!L) return; delete L.kf; commit(); renderTextUI(); toast('Motion cleared.'); };
 $('txtBold').onclick = () => { const L = curText(); L && patchText({ bold: !L.bold }); };
 $('txtItalic').onclick = () => { const L = curText(); L && patchText({ italic: !L.italic }); };
 $('txtOneLine').onclick = () => { const L = curText(); L && patchText({ oneLine: !L.oneLine }); };
@@ -857,6 +874,9 @@ function drawTexts(c2, W, H, t, still = false) {
 // A text's own animation (picked per text) wraps whatever draws it. A template text with its own
 // animation is drawn in its final state and moved by this one instead, so the two never stack.
 function drawTextAnimated(c2, W, H, L, t, still) {
+  // Motion keyframes move the text across the frame over time. While it's being dragged, show the live
+  // position (L._live) instead, so dragging feels direct; the drop writes a keyframe.
+  if (!L._live && L.kf && L.kf.length) { const p = kfSample(L.kf, t); if (p) L = { ...L, x: p.x, y: p.y }; }
   const draw = (X, st) => (X.tpl ? drawTplText(c2, W, H, X, t, st) : drawLayer(c2, W, H, X));
   if (still || !L.anim) return draw(L, still);
   const a = animState(L.anim, t, L.start, L.end);
@@ -1339,7 +1359,10 @@ $('seek').oninput = e => {
     const id = hitLayer(S.textBoxes, (e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height);
     if (id) {
       const L = texts().find(l => l.id === id);
-      drag = { text: L, x0: e.clientX, y0: e.clientY, lx: L.x, ly: L.y, moved: false, w: r.width, h: r.height };
+      // With keyframes, start the drag from where the text is right now (the interpolated spot).
+      const at = L.kf && L.kf.length ? kfSample(L.kf, video.currentTime) : null;
+      L._live = true;
+      drag = { text: L, x0: e.clientX, y0: e.clientY, lx: at ? at.x : L.x, ly: at ? at.y : L.y, moved: false, w: r.width, h: r.height };
       if (S.textSel !== id) selectText(id);
     } else if (S.image && S.o.frame) {
       const f = S.o.frame, rc = photoRect(S.image.naturalWidth, S.image.naturalHeight, canvas.width, canvas.height, f);
@@ -1378,6 +1401,14 @@ $('seek').oninput = e => {
   const end = () => {
     if (!drag) return;
     canvas.classList.remove('dragging');
+    if (drag.text) {
+      delete drag.text._live;
+      // Moving a text that already has keyframes writes a keyframe at the playhead: it moves there over time.
+      if (drag.moved && drag.text.kf && drag.text.kf.length) {
+        drag.text.kf = upsertKf(drag.text.kf, video.currentTime, drag.text.x, drag.text.y);
+        renderTextUI();
+      }
+    }
     if (drag.moved) commit();
     else if (!drag.text) { if (drag.wasSel) deselectText(); else togglePlay(); }
     drag = null;

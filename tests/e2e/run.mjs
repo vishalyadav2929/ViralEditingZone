@@ -1704,6 +1704,49 @@ await step('AI edit (Claude): button only when switched on; the plan cuts, hooks
   await ctx.close();
 });
 
+await step('text: opacity, glow, and motion keyframes make the text glide across the frame', async () => {
+  const src = join(OUT, 'pause.webm'); // 6 s, from the cut-silences step
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', src);
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.click('#ltabText');
+  await m.click('#txtAdd');
+  await m.waitForSelector('#txtEdit:not([hidden])');
+  // Opacity + glow are stored on the layer.
+  await m.fill('#txtText', 'MOVE ME');
+  await m.locator('#txtText').blur();
+  await m.click('#txtWhole');
+  await m.$eval('#txtOpacity', el => { el.value = 50; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await m.click('#txtGlow');
+  let L = await m.evaluate(() => window.__vcz.S.o.texts[0]);
+  assert.ok(Math.abs(L.op - 0.5) < 1e-6, `op ${L.op}`);
+  assert.equal(L.glow, true);
+  // Keyframe at t=0, then move the playhead and drag the text to a new spot.
+  await m.evaluate(() => { window.__vcz.video.currentTime = 0; });
+  await m.click('#txtKfAdd');
+  assert.equal((await m.evaluate(() => window.__vcz.S.o.texts[0].kf)).length, 1);
+  await m.evaluate(() => { window.__vcz.video.currentTime = 2; });
+  // Drag the text from where it sits now to the top-left of the frame.
+  const box = await m.evaluate(() => {
+    const b = window.__vcz.S.textBoxes[0], c = document.getElementById('stage') || document.querySelector('canvas');
+    const r = c.getBoundingClientRect(), kx = r.width / c.width, ky = r.height / c.height;
+    return { fx: r.left + (b.x0 + b.w / 2) * kx, fy: r.top + (b.y0 + b.h / 2) * ky, tx: r.left + r.width * 0.2, ty: r.top + r.height * 0.2 };
+  });
+  await m.mouse.move(box.fx, box.fy); await m.mouse.down();
+  await m.mouse.move(box.fx - 20, box.fy - 20); await m.mouse.move(box.tx, box.ty, { steps: 6 }); await m.mouse.up();
+  const kf = await m.evaluate(() => window.__vcz.S.o.texts[0].kf);
+  assert.equal(kf.length, 2, JSON.stringify(kf));
+  // Between the two keyframes the position is strictly between them (it is moving).
+  const a = kf[0], b = kf[kf.length - 1];
+  assert.ok(Math.abs(b.x - a.x) > 0.05 || Math.abs(b.y - a.y) > 0.05, `moved: ${JSON.stringify(kf)}`);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();
