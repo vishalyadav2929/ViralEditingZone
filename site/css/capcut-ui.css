@@ -1,4 +1,4 @@
-/* CapCut-style UI shell for Viral Editing Zone — PATCH ONLY.
+/* CapCut-style UI shell for BrandBaazi — PATCH ONLY.
    Load AFTER css/styles.css. This file changes LAYOUT/LOOK only.
    It must NOT change caption typography, colours or rendering:
    templates.js / renderer.js / captions.js are untouched by design.
@@ -57,4 +57,105 @@ body.studio .editor-topbar .export-cta {
     content: "Soon"; font-size: 10px; background: #6d28d9; color: #fff;
     border-radius: 999px; padding: 1px 6px; margin-left: 6px;
   }
+}
+
+/* ---- Fix-1 (2026-10-29): layout bugs from the 2026-10-25 screenshot + live
+   inspection. LAYOUT ONLY — no caption, template, ASR or export logic here.
+   Nothing is deleted; every tab, panel and control stays in the page. ---- */
+
+/* Fix-1.1 — Left tool rail, short windows: the rail must be a real rail
+   beside its panel (not a column stacked above the panel content), bounded
+   to the panel height and internally scrollable, so all 9 tabs are always
+   reachable and none is dropped in a short window. */
+@media (min-width: 761px) {
+  body.studio #editor .panel.tools {
+    flex-direction: row;
+    min-width: 0;
+  }
+  body.studio #editor .panel.tools .tool-tabs {
+    display: flex; flex-direction: column; flex-wrap: nowrap;
+    flex: 0 0 72px; width: 72px; height: 100%; min-height: 0;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 6px; box-sizing: border-box;
+    border-bottom: 0; border-right: 1px solid var(--line);
+    scrollbar-width: thin;
+  }
+  body.studio #editor .panel.tools .tool-tab {
+    flex: none; flex-direction: column; font-size: 11px;
+    padding: 10px 4px; border-radius: 10px; text-align: center;
+    min-width: 0; white-space: normal;
+  }
+  body.studio #editor .panel.tools .panel-b {
+    flex: 1 1 auto; min-width: 0; min-height: 0;
+  }
+}
+
+/* Fix-1.2 — Preview bottom controls: wrap inside the stage instead of
+   running off the right edge, shrink the seek bar first, and lift the row
+   above the fixed bottom-right Netlify badge zone. The badge is NOT
+   removed; controls simply no longer sit under it. */
+body.studio .stage .transport {
+  flex-wrap: wrap; row-gap: 8px; column-gap: 8px;
+  margin-bottom: 40px; padding-right: 4px; box-sizing: border-box;
+}
+body.studio .stage .transport .seek {
+  flex: 1 1 120px; min-width: 0;
+}
+body.studio .stage .transport .time {
+  min-width: 0; white-space: nowrap; font-size: 12px;
+}
+body.studio .stage .transport .btn,
+body.studio .stage .transport label.btn {
+  flex: none; white-space: nowrap;
+}
+
+/* Fix-1.3 — Details panel too narrow ("Style's owr"): keep its text
+   readable by letting its two-up rows wrap to full-width fields instead
+   of squeezing a dropdown to a truncated width. */
+body.studio .panel.props .panel-b .row.field {
+  flex-wrap: wrap;
+}
+body.studio .panel.props .panel-b .row.field > * {
+  flex: 1 1 140px; min-width: 0;
+}
+body.studio .panel.props .panel-b select,
+body.studio .panel.props .panel-b input {
+  max-width: 100%; min-width: 0;
+}
+
+/* Fix-1.4 — Tools panels horizontal overflow (Captions / Clips): panel
+   content wraps inside the panel; no sideways scrollbar on any tool
+   panel. The timeline's own horizontal scroll (.tl-scroll) is untouched. */
+body.studio .panel.tools .panel-b,
+body.studio .panel.props .panel-b {
+  overflow-x: hidden; overflow-wrap: anywhere;
+}
+body.studio .panel.tools .panel-b .row {
+  flex-wrap: wrap;
+}
+body.studio .panel.tools .panel-b .row > * {
+  min-width: 0;
+}
+body.studio .panel.tools .panel-b select,
+body.studio .panel.tools .panel-b input[type="text"],
+body.studio .panel.tools .panel-b textarea {
+  max-width: 100%; min-width: 0;
+}
+
+/* Fix-1.7 — Same badge clearance on the home/dash view: keep the bottom
+   of the dash content clear of the fixed bottom-right badge. */
+body.studio .dash-main {
+  padding-bottom: 40px;
+}
+
+/* Timeline word chips — UNVERIFIED, CSS-only, timing untouched: a chip's
+   width/position still come from its word timing. Only on hover, or when
+   the word is selected, its full text is allowed to spill over its
+   neighbours so a short word is readable. This does NOT claim the
+   screenshot's "gu / RFF / 4 / 26" truncation is fixed — that can only be
+   verified with the user's own video, which renders no chips in a blank
+   project. */
+body.studio .tw:hover,
+body.studio .tw.sel {
+  overflow: visible; z-index: 5;
 }

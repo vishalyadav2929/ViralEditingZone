@@ -1063,3 +1063,27 @@ body.design #ltabClips, body.design #tabCaptions, body.design #ltabSnd, body.des
 .tv-cut { position: absolute; top: 0; height: 44px; z-index: 2; border: 0; padding: 0; cursor: pointer; background: repeating-linear-gradient(45deg, rgba(239,68,68,.75) 0 6px, rgba(127,29,29,.75) 6px 12px); border-radius: 3px; }
 .tv-cut:hover { outline: 2px solid #fca5a5; }
 .tl-ai { background: linear-gradient(90deg, #7c3aed, #db2777) !important; color: #fff !important; border-color: transparent !important; }
+
+/* ---- Fix-1 home (2026-10-29, LAYOUT ONLY) ----
+   5. Questions accordion: full content width instead of ~55-60%.
+   6. Hero phone-mockup stack: smaller fan + tighter offsets so the
+      phones scale inside the hero instead of overflowing / hiding
+      behind each other. Animation keyframes are updated to match, so
+      the fan does not jump back to the old offsets mid-animation. */
+.dash-faq { max-width: none; }
+.dash-hero { min-width: 0; }
+.hero-phones { max-width: 100%; overflow: hidden; }
+.phone { width: 138px; }
+.phone.ph2 { width: 156px; }
+.phone.ph1 { transform: translateX(-104px) rotate(-8deg) scale(.88); }
+.phone.ph3 { transform: translateX(104px) rotate(8deg) scale(.88); }
+@keyframes floatA { 50% { transform: translateX(-104px) translateY(-10px) rotate(-6deg) scale(.88); } }
+@keyframes floatC { 50% { transform: translateX(104px) translateY(-8px) rotate(10deg) scale(.88); } }
+@media (max-width: 1000px) {
+  .phone { width: 108px; }
+  .phone.ph2 { width: 122px; }
+  .phone.ph1 { transform: translateX(-84px) rotate(-8deg) scale(.88); }
+  .phone.ph3 { transform: translateX(84px) rotate(8deg) scale(.88); }
+  @keyframes floatA { 50% { transform: translateX(-84px) translateY(-8px) rotate(-6deg) scale(.88); } }
+  @keyframes floatC { 50% { transform: translateX(84px) translateY(-6px) rotate(10deg) scale(.88); } }
+}
