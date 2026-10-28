@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BrandBaazi — Free Viral Captions in Hindi, Hinglish & 30+ Languages</title>
+  <meta name="description" content="Free AI caption generator for Reels, Shorts and Pins. Viral Instagram & Pinterest typography, live captions, Hindi, Hinglish, English and 30+ languages. Runs in your browser.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link id="fonts" rel="stylesheet">
+  <link rel="canonical" href="https://viralcaptionwala.netlify.app/about.html">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#6d28d9">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="BrandBaazi">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="BrandBaazi">
+  <meta property="og:title" content="BrandBaazi — Free Viral Captions in Hindi, Hinglish & 30+ Languages">
+  <meta property="og:description" content="Free AI caption generator for Reels, Shorts and Pins. Viral Instagram & Pinterest typography, live captions, Hindi, Hinglish, English and 30+ languages. Runs in your browser.">
+  <meta property="og:image" content="https://viralcaptionwala.netlify.app/icons/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="home">
+  <nav class="nav nav-float">
+    <div class="wrap">
+      <a class="logo" href="./"><img class="logo-mark" src="icons/brandbaazi-badge-128.png" alt="BrandBaazi" width="34" height="34"><span>BrandBaazi</span></a>
+      <div class="nav-links">
+        <a href="#demo">Demo</a>
+        <a href="templates.html">Templates</a>
+        <a href="#free">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <a class="btn btn-primary btn-sm" href="app.html">Start free</a>
+    </div>
+  </nav>
+
+  <header class="hero2">
+    <div class="wrap">
+      <span class="badge">₹0 forever · no sign-up · no watermark</span>
+      <h1>Add <span class="g">viral AI captions</span> to your Reels</h1>
+      <p>Upload a video and get word-by-word captions in Hindi, Hinglish, English and 30+ languages. Tap a style, export in original quality.</p>
+      <ul class="checks">
+        <li>Auto speech-to-text</li>
+        <li>90 viral templates</li>
+        <li>Word-by-word highlight</li>
+        <li>Hindi ⇄ Hinglish</li>
+        <li>Original-quality export</li>
+      </ul>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="app.html">Get started free →</a>
+        <a class="btn btn-lg" href="#demo">See it in action</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section wrap demo" id="demo">
+    <span class="kicker">Live demo</span>
+    <h2>See it <span class="grad-text">in action</span></h2>
+    <p class="sub">Pick a style below and watch the captions change on the video, exactly as they will in the editor and in your export.</p>
+    <div class="demo-pair">
+      <figure><figcaption class="pill">Original</figcaption><div class="phone"><canvas id="demoOrig"></canvas></div></figure>
+      <figure><figcaption class="pill on">With captions</figcaption>
+        <div class="phone"><canvas id="demoCap"></canvas>
+          <div class="demo-ctl"><button type="button" id="demoPlay" aria-label="Play or pause" hidden>❚❚</button><button type="button" id="demoMute" aria-label="Sound on or off" hidden>🔇</button></div>
+        </div>
+      </figure>
+    </div>
+    <h3 class="demo-h">Caption style</h3>
+    <div class="demo-styles" id="demoStyles"></div>
+    <p class="sub small">In the editor you control everything: size, position (drag it on the video), colours, fonts and words per caption.</p>
+    <div class="center"><a class="btn btn-primary" href="templates.html">See all templates</a></div>
+  </section>
+
+  <section class="section wrap" id="showcase" hidden>
+    <h2>Made with <b class="grad-text">our captions</b></h2>
+    <p class="sub">Real videos with captions from this site. Tap one to use that style.</p>
+    <div class="ex-grid" id="exGrid"></div>
+  </section>
+
+  <section class="section wrap" id="how">
+    <span class="kicker">3 steps</span>
+    <h2>From raw clip to captioned Reel</h2>
+    <div class="steps">
+      <div class="step"><b>1</b><h3>Upload</h3><p>Pick a video from your phone or computer. Choose the language you speak in.</p></div>
+      <div class="step"><b>2</b><h3>Tap a style</h3><p>Captions appear word by word. Tap any template and the video changes instantly. Fix any word.</p></div>
+      <div class="step"><b>3</b><h3>Export</h3><p>Download in original quality with the original sound, or as transparent / green-screen captions for CapCut.</p></div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="templates">
+    <span class="kicker">Templates</span>
+    <h2>90 caption styles</h2>
+    <p class="sub">Every style plays live. Switch the language to see your script, then tap a style to open it in the editor.</p>
+    <div class="tabs" id="langTabs" aria-label="Preview language"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid-head">Every template · <span id="tplCount"></span></div>
+    <div class="grid" id="grid"></div>
+    <button class="btn more-tpl" id="moreTpl" type="button">Show all templates</button>
+  </section>
+
+  <section class="section wrap" id="free">
+    <span class="kicker">Pricing</span>
+    <h2>Simple pricing: <span class="grad-text">free</span></h2>
+    <p class="sub">No tokens, no credits, no subscription. Make as many Reels as you want.</p>
+    <div class="price">
+      <div class="price-card">
+        <h3>Free</h3>
+        <div class="amt">₹0 <small>forever</small></div>
+        <ul class="ticks">
+          <li><b>Unlimited</b> videos and exports</li>
+          <li>No sign-up, no watermark</li>
+          <li>All 90 templates</li>
+          <li>Hindi, Hinglish, English + 30 languages</li>
+          <li>Original-quality MP4, transparent and green-screen export</li>
+          <li>Translate captions, SRT in and out</li>
+        </ul>
+        <a class="btn btn-primary btn-lg" href="app.html">Start captioning →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="languages">
+    <span class="kicker">Languages</span>
+    <h2>30+ languages, Hinglish included</h2>
+    <p class="sub">Captions in Devanagari, or in Roman Hinglish the way people type on Instagram. Translate to any language later.</p>
+    <div class="lang-cloud" id="langs"></div>
+  </section>
+
+  <section class="section wrap" id="faq">
+    <span class="kicker">FAQ</span>
+    <h2>Questions</h2>
+    <div class="faq">
+      <details><summary>Is it really free?</summary><p>Yes. There are no tokens or credits and no watermark. The site runs in your browser, so there's no per-video cost to pass on.</p></details>
+      <details><summary>Does my video get uploaded anywhere?</summary><p>No. Your video stays on your phone or computer. If Fast mode is on, only the audio is sent to our speech server to turn it into text, and you can switch Fast mode off under More options. See <a href="privacy.html">Privacy</a>.</p></details>
+      <details><summary>Will the export lose quality?</summary><p>No. Exports keep your video's resolution, use a bitrate at least as high as the original, and copy the original sound unchanged.</p></details>
+      <details><summary>Can I get Hinglish (Hindi in English letters)?</summary><p>Yes. Choose Hinglish as the caption language, or switch any Hindi captions to Hinglish with one tap.</p></details>
+      <details><summary>Does it work on iPhone?</summary><p>Yes, in Safari. You can also add it to your Home Screen (Share → Add to Home Screen) and open it like an app.</p></details>
+      <details><summary>Can I use the captions in CapCut or InShot?</summary><p>Yes. Export "transparent" or "green screen" captions and lay them over your video, or download an SRT file.</p></details>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="cta-band">
+      <h2>Make your next Reel stand out</h2>
+      <p class="sub">Free forever. No watermark, no account.</p>
+      <a class="btn btn-primary btn-lg" href="app.html">Get started free →</a>
+    </div>
+  </section>
+
+  <footer><div class="wrap">BrandBaazi · Free caption generator for creators · <a href="privacy.html">Privacy</a> · <a href="templates.html">All templates</a></div></footer>
+
+  <script type="module">
+    import { FONTS_URL, loadTemplateFonts } from './js/templates.js';
+    import { mountGallery } from './js/gallery.js';
+    import { mountDemo } from './js/demo.js';
+    import { mountShowcase } from './js/showcase.js';
+    mountShowcase(document.getElementById('showcase'), document.getElementById('exGrid'));
+    import { LANGUAGES } from './js/languages.js';
+
+    document.getElementById('fonts').href = FONTS_URL;
+    const langs = document.getElementById('langs');
+    LANGUAGES.filter(l => l.whisper).forEach(l => {
+      const s = document.createElement('span'); s.textContent = l.name; langs.appendChild(s);
+    });
+
+    // The hero renders right away; fonts swap in as they arrive. Everything below the fold
+    // (85 live previews and every template font) waits until the page has finished loading.
+    const whenIdle = fn => {
+      const go = () => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
+      document.readyState === 'complete' ? go() : addEventListener('load', go, { once: true });
+    };
+    whenIdle(loadTemplateFonts);
+    {
+      mountDemo({ orig: document.getElementById('demoOrig'), cap: document.getElementById('demoCap'), styles: document.getElementById('demoStyles'), playBtn: document.getElementById('demoPlay'), muteBtn: document.getElementById('demoMute') });
+      whenIdle(() => mountGallery({
+        tabsEl: document.getElementById('tabs'),
+        gridEl: document.getElementById('grid'),
+        langEl: document.getElementById('langTabs'),
+        countEl: document.getElementById('tplCount'),
+        onSelect: tpl => { location.href = 'app.html?t=' + encodeURIComponent(tpl.id); },
+      }));
+      // Phones show a dozen templates first; the rest on request (or as soon as a filter is used).
+      const sec = document.getElementById('templates');
+      const showAll = () => sec.classList.add('all');
+      document.getElementById('moreTpl').onclick = showAll;
+      document.getElementById('tabs').addEventListener('click', showAll);
+    }
+  </script>
+  <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
+</body>
+</html>
