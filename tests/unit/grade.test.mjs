@@ -15,6 +15,11 @@ test('identity LUT round-trips and looks change colours', () => {
   }
   const bw = LOOKS.bw.fn(0.9, 0.2, 0.1);
   assert.ok(bw[0] === bw[1] && bw[1] === bw[2], 'B&W is grey');
+  const noir = LOOKS.noir.fn(0.9, 0.2, 0.1);
+  assert.ok(noir[0] === noir[1] && noir[1] === noir[2], 'Film Noir is grey');
+  const sep = LOOKS.sepia.fn(0.5, 0.5, 0.5);
+  assert.ok(sep[0] > sep[1] && sep[1] > sep[2], 'Sepia is brown');
+  assert.equal(Object.keys(LOOKS).length, 18);
 });
 
 test('parseCube reads .cube files, honours DOMAIN and rejects bad ones', () => {
