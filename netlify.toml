@@ -1,4 +1,4 @@
-# ViralCaptionZone is a static site with one optional function (Fast mode, off until GROQ_API_KEY is set).
+# BrandBaazi is a static site with one optional function (Fast mode, off until GROQ_API_KEY is set).
 [build]
   publish = "site"
   command = "echo 'Static site, nothing to build'"

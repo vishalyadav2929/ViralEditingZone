@@ -1946,7 +1946,7 @@ $('recBtn').onclick = () => {
   recorder.ondataavailable = e => e.data.size && parts.push(e.data);
   recorder.onstop = () => {
     const blob = new Blob(parts, { type: mimeType || 'video/webm' });
-    if (blob.size) download(blob, `viralcaptionzone-live.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`);
+    if (blob.size) download(blob, `brandbaazi-live.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`);
     $('recBtn').textContent = '● Record'; $('liveTime').textContent = '';
     toast(blob.size ? 'Recording saved to your downloads.' : 'Recording was empty.');
   };

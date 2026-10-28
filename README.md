@@ -1,4 +1,4 @@
-# ViralCaptionZone
+# BrandBaazi
 
 A free, browser-based caption editor for Reels, Shorts and Pins. Upload a video, generate captions from its audio, fix the text and timing, pick one of 90 animated caption styles, and download the video with the captions burned in.
 
