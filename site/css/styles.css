@@ -1087,3 +1087,53 @@ body.design #ltabClips, body.design #tabCaptions, body.design #ltabSnd, body.des
   @keyframes floatA { 50% { transform: translateX(-84px) translateY(-8px) rotate(-6deg) scale(.88); } }
   @keyframes floatC { 50% { transform: translateX(84px) translateY(-6px) rotate(10deg) scale(.88); } }
 }
+
+/* ---- BrandBaazi official logos (2026-10-29, LAYOUT ONLY) ----
+   Header mark = badge file (cream circle, orange ring) shown as a
+   circle, so no cream square sits on the dark top bar. The old
+   text-only "BB" mark is replaced by the official badge image; the
+   word "BrandBaazi" beside it is a text label, not a logo substitute.
+   Hero logo = full main logo (monogram + wordmark + tagline intact,
+   never cropped). Displayed as a rounded card so its cream background
+   reads as a logo card, not a stray white box. */
+.logo img.logo-mark {
+  width: 34px; height: 34px; border-radius: 50%;
+  object-fit: cover; background: none; display: block; flex: none;
+}
+.hero-logo {
+  display: block; width: 160px; height: 160px;
+  border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  margin-bottom: 6px;
+}
+@media (max-width: 1000px) {
+  .hero-logo { width: 140px; height: 140px; }
+}
+@media (max-width: 640px) {
+  .logo img.logo-mark { width: 28px; height: 28px; }
+}
+
+/* ---- BrandBaazi booking CTA: Instagram "DM here" (2026-10-29) ----
+   Home hero = prominent; editor header (#navActions) = small.
+   Handle is a single variable: window.BRAND_INSTAGRAM in app.html head.
+   Until it is set, the buttons stay visible but disabled (aria-disabled),
+   so no visitor is sent to a guessed account. The caption editor itself
+   is untouched — this is a booking front-page CTA only. */
+.book-cta { margin-top: 20px; display: grid; gap: 10px; justify-items: start; }
+.book-cta-text { margin: 0; font-size: 15px; font-weight: 700; color: var(--text); }
+.book-cta-sub { margin: 0; font-size: 12.5px; color: var(--muted); }
+a.ig-dm, body.studio a.ig-dm {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  color: #fff; border: 1px solid transparent; border-radius: 999px;
+  font-weight: 700; text-decoration: none; white-space: nowrap; flex: none;
+}
+a.ig-dm svg { display: block; flex: none; }
+a.ig-dm:hover { opacity: .92; }
+a.ig-dm[aria-disabled="true"] { opacity: .8; cursor: not-allowed; }
+.ig-dm--hero { padding: 13px 20px; font-size: 15px; }
+.ig-dm--nav { padding: 7px 12px; font-size: 13px; }
+@media (max-width: 640px) {
+  .ig-dm--nav .ig-dm-label { display: none; }
+  .ig-dm--nav { padding: 7px 9px; }
+  .book-cta { margin-top: 16px; }
+}

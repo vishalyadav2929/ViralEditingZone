@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BrandBaazi Editor — Free Video Captions</title>
+  <!-- BRAND INSTAGRAM — CONFIRMED BY USER 2026-10-29: https://www.instagram.com/brandbaazi.in/ -->
+  <!-- Booking handle for the "DM here" buttons. Set here and nowhere else. -->
+  <script>
+    window.BRAND_INSTAGRAM = "brandbaazi.in";
+  </script>
   <meta name="description" content="Add viral animated captions to your videos for free. Hindi, Hinglish, English and 30+ languages. Live captions and upload.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +34,7 @@
   <a class="skip" href="#main">Skip to content</a>
   <nav class="nav">
     <div class="wrap" style="max-width:none">
-      <a class="logo" href="./" id="logoLink"><span class="logo-mark">BB</span><span>BrandBaazi</span></a>
+      <a class="logo" href="./" id="logoLink"><img class="logo-mark" src="icons/brandbaazi-badge-128.png" alt="BrandBaazi" width="34" height="34"><span>BrandBaazi</span></a>
       <div class="row nav-actions" id="navActions" hidden>
         <button class="btn btn-sm" id="homeBtn" type="button" title="Back to your projects" aria-label="Projects">⌂<span class="lbl"> Projects</span></button>
         <button class="btn btn-sm icon-btn" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
@@ -46,6 +51,7 @@
           </div>
         </div>
         <button class="btn btn-sm" id="srtBtn" disabled>SRT</button>
+        <a class="btn btn-sm ig-dm ig-dm--nav js-ig-dm" href="#" aria-disabled="true" title="Instagram handle pending — set BRAND_INSTAGRAM in app.html to activate" aria-label="Book on Instagram — DM here (handle pending)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span class="ig-dm-label">DM here</span></a>
         <button class="btn btn-primary btn-sm" id="exportBtn" disabled>Export video</button>
       </div>
     </div>
@@ -63,7 +69,7 @@
       </div>
     </header>
     <aside class="dash-side" aria-label="Main">
-      <a class="dash-brand" href="./"><span class="logo-mark">BB</span><span>BrandBaazi</span></a>
+      <a class="dash-brand" href="./"><img class="logo-mark" src="icons/brandbaazi-badge-128.png" alt="BrandBaazi" width="34" height="34"><span>BrandBaazi</span></a>
       <nav class="dash-nav">
         <a class="on" href="#" data-go="top"><span aria-hidden="true">⌂</span> Home</a>
         <a href="#projects" data-go="projects"><span aria-hidden="true">▤</span> My projects</a>
@@ -89,6 +95,7 @@
     <div class="dash-main">
       <section class="dash-hero">
         <div class="hero-copy">
+          <img class="hero-logo" src="assets/brandbaazi-logo-640.png" alt="BrandBaazi — Digital Marketing &amp; Brand Growth" width="160" height="160">
           <span class="hero-pill"><i class="dot" aria-hidden="true"></i> Free · No watermark · Made for Indian creators</span>
           <h1 id="startTitle">Make <span class="grad-text">viral Reels</span> in minutes, right in your browser</h1>
           <p>Auto captions in Hindi, Hinglish, English and 30+ languages, 90 animated caption styles, your own text, sounds, colour filters, and long video → Shorts. Your video is never uploaded.</p>
@@ -97,6 +104,11 @@
             <li><b data-count="30">30+</b><span>languages</span></li>
             <li><b>₹0</b><span>no sign-up</span></li>
           </ul>
+          <div class="book-cta">
+            <p class="book-cta-text">Want BrandBaazi to edit for your brand?</p>
+            <a class="ig-dm ig-dm--hero js-ig-dm" href="#" aria-disabled="true" title="Instagram handle pending — set BRAND_INSTAGRAM in app.html to activate" aria-label="Book on Instagram — DM here (handle pending)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span class="ig-dm-label">DM here</span></a>
+            <p class="book-cta-sub">Book directly on Instagram — brands and editors welcome.</p>
+          </div>
         </div>
         <div class="hero-phones" aria-hidden="true">
           <canvas class="phone ph1"></canvas><canvas class="phone ph2"></canvas><canvas class="phone ph3"></canvas>
@@ -601,5 +613,26 @@
   <script type="module" src="js/app.js"></script>
   <script type="module" src="js/capcut-shell.js"></script>
   <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
+  <!-- Instagram "DM here" wiring: single handle source = window.BRAND_INSTAGRAM (head).
+       Pending state: buttons stay visible but disabled and point nowhere, so no visitor
+       is ever sent to a guessed/wrong account. When a real handle is set, each button
+       links to https://www.instagram.com/<handle>/ (profile, where DM opens). -->
+  <script>
+    (function () {
+      var handle = (window.BRAND_INSTAGRAM || "").trim().replace(/^@/, "");
+      var links = document.querySelectorAll(".js-ig-dm");
+      if (!/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+        links.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); }); });
+        return;
+      }
+      links.forEach(function (a) {
+        a.href = "https://www.instagram.com/" + handle + "/";
+        a.target = "_blank"; a.rel = "noopener";
+        a.removeAttribute("aria-disabled");
+        a.title = "Book on Instagram — DM here";
+        a.setAttribute("aria-label", "Book on Instagram — DM here");
+      });
+    })();
+  </script>
 </body>
 </html>
