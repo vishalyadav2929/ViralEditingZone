@@ -1,50 +1,31 @@
 // CapCut-style shell — PATCH ONLY. No caption, template or ASR logic here.
-// It only MOVES existing DOM nodes, so every existing click handler keeps working.
-// Existing IDs are never renamed, removed or recreated.
+// It only toggles a body class and MOVES existing DOM nodes, so every existing
+// click handler keeps working and existing IDs are never renamed or removed.
+//
+// Scope: the CapCut look is applied on desktop/tablet widths (>=761px), where
+// css/capcut-ui.css turns the tool tabs into a side rail and tidies the panels.
+// On phones (<=760px) the editor keeps its existing, mobile-tuned layout
+// untouched — forcing a fixed bottom toolbar there fought that layout, so a
+// proper phone toolbar is left for a dedicated pass. Everything is reversible:
+// remove this file + css/capcut-ui.css from app.html and the old editor returns.
 
-const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
+const DESKTOP = () => window.matchMedia('(min-width: 761px)').matches;
 
-function buildBottomBar() {
-  document.body.classList.add('capcut-shell');
-  // Find the editor's existing tool tabs (Media, Clips, Captions, Text, ...)
+function apply() {
   const tabs = document.querySelector('.tool-tabs');
-  if (!tabs || document.querySelector('.capcut-bottombar')) return;
-  const bar = document.createElement('div');
-  bar.className = 'capcut-bottombar';
-  bar.setAttribute('aria-label', 'Editor tools');
-  document.body.appendChild(bar);
-
-  const placeTabs = () => {
-    // Move the SAME tab buttons (not clones) so listeners survive.
-    if (isMobile()) bar.append(...tabs.querySelectorAll('.tool-tab'));
-    else tabs.append(...bar.querySelectorAll('.tool-tab'));
-  };
-  placeTabs();
-  window.addEventListener('resize', placeTabs);
-
-  // When a panel opens on mobile, show it as a bottom sheet.
-  tabs.addEventListener('click', (e) => {
-    const tab = e.target.closest('.tool-tab');
-    if (!tab || !isMobile()) return;
-    const panelId = tab.getAttribute('aria-controls');
-    const panel = panelId && document.getElementById(panelId);
-    if (panel) panel.classList.add('sheet-open');
-  });
-  document.addEventListener('click', (e) => {
-    // Tapping outside a sheet closes it; tapping a tab is handled above.
-    if (!isMobile() || e.target.closest('.panel-b') || e.target.closest('.tool-tab')) return;
-    document.querySelectorAll('.panel-b.sheet-open').forEach(p => p.classList.remove('sheet-open'));
-  });
+  if (!tabs) return;
+  // Any tabs that an earlier state parked in a bottom bar come back to the rail.
+  const bar = document.querySelector('.capcut-bottombar');
+  if (bar) { tabs.append(...bar.querySelectorAll('.tool-tab')); bar.remove(); }
+  document.body.classList.toggle('studio', DESKTOP());
 }
 
-// Features that do NOT exist yet must never look live. They stay visible
-// but disabled, exactly like the dashboard's existing "Soon" tools.
+// Features that do NOT exist yet must never look live. They stay visible but
+// disabled, exactly like the dashboard's existing "Soon" tools.
 export function markSoon(button) {
   if (button) { button.classList.add('capcut-soon'); button.disabled = true; }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', buildBottomBar);
-} else {
-  buildBottomBar();
-}
+function start() { apply(); window.addEventListener('resize', apply); window.addEventListener('orientationchange', apply); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+else start();
