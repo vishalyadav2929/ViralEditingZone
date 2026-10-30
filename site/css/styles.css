@@ -309,7 +309,13 @@ label.inline b { color: var(--accent); }
   .stage { top: 54px; }
   .canvas-box { height: 40vh; }
   .app > aside[aria-label="Templates"] .grid { grid-auto-columns: 132px; }
-  .nav-actions { gap: 6px; }
+  /* Editor header on phones: the DM button (added with branding) made the action row
+     Projects · undo · redo · Layout · SRT · DM · Export wider than a narrow screen, so
+     the page scrolled sideways. Let the row shrink and scroll inside the header instead
+     of pushing the page wide — every button stays reachable, nothing is removed. */
+  .nav-actions { gap: 6px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav-actions::-webkit-scrollbar { display: none; }
+  .nav-actions .btn, .nav-actions .icon-btn, .nav-actions .lay-wrap { flex: 0 0 auto; }
   .nav-actions .icon-btn { min-width: 34px; padding: 6px 8px; }
   #fileControls label.btn { display: none; } /* Replace lives in the start screen on phones */
   /* iPhone zooms the page when a focused field's text is under 16px. */

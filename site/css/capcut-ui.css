@@ -37,6 +37,7 @@ body.studio .editor-topbar .export-cta {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     display: flex; gap: 4px; overflow-x: auto; padding: 8px 10px 12px;
     background: #111; color: #fff; scrollbar-width: none;
+    box-sizing: border-box;
   }
   body.studio .capcut-bottombar::-webkit-scrollbar { display: none; }
   body.studio .capcut-bottombar .tool-tab {
