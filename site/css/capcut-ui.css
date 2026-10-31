@@ -31,29 +31,41 @@ body.studio .editor-topbar .export-cta {
   body.studio #stage { border-radius: 12px; background: #000; }
 }
 
-/* ---- Mobile (<=760px): CapCut bottom toolbar + bottom-sheet panels ---- */
+/* ---- Mobile (<=760px): CapCut-style fixed bottom tool bar ----
+   The editor's existing tool tabs (Media, Clips, Captions, Text, Thumbnail, Audio,
+   Styles, Filters, Adjust) are pinned to the bottom of the screen as a dark, always-
+   visible tool bar — the same buttons and the same click handlers, only repositioned
+   by CSS (no DOM moved), so tapping one still switches its panel. The editor gets
+   bottom padding so the bar never covers the timeline or the last controls, and the
+   bar is border-box + scrollable so it never pushes the page sideways. */
 @media (max-width: 760px) {
-  body.studio .capcut-bottombar {
+  body.studio #editor .panel.tools .tool-tabs {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    display: flex; gap: 4px; overflow-x: auto; padding: 8px 10px 12px;
-    background: #111; color: #fff; scrollbar-width: none;
+    display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
+    padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: #111; color: #fff; border: 0; border-top: 1px solid rgba(255, 255, 255, .1);
     box-sizing: border-box;
   }
-  body.studio .capcut-bottombar::-webkit-scrollbar { display: none; }
-  body.studio .capcut-bottombar .tool-tab {
-    flex: 0 0 auto; flex-direction: column; font-size: 11px;
-    padding: 8px 12px; border-radius: 12px; background: transparent; color: #fff;
+  body.studio #editor .panel.tools .tool-tabs::-webkit-scrollbar { display: none; }
+  body.studio #editor .panel.tools .tool-tab {
+    flex: 0 0 auto; flex-direction: column; gap: 3px; font-size: 11px;
+    padding: 6px 12px; border-radius: 12px; background: transparent; color: #fff; min-width: 0;
   }
-  body.studio .capcut-bottombar .tool-tab.on { background: #fff; color: #111; }
-  /* A panel opened from the bottom bar becomes a bottom sheet */
-  body.studio .panel-b.sheet-open {
-    position: fixed; left: 0; right: 0; bottom: 62px; z-index: 39;
-    max-height: 55vh; overflow-y: auto; border-radius: 20px 20px 0 0;
-    background: #fff; box-shadow: 0 -8px 30px rgba(0,0,0,.25); padding: 16px;
+  body.studio #editor .panel.tools .tool-tab.on { background: #fff; color: #111; }
+  /* Room so the fixed bar never sits on top of the timeline or the last controls, and
+     scroll-margin so any control scrolled to always clears the bar (it can't be tapped
+     while the bar covers it). Covers the timeline and every button/field in the panels. */
+  body.studio #editor { padding-bottom: 76px; }
+  /* On phones the preview is sticky at the top and the tool bar is fixed at the bottom,
+     so a control scrolled to must clear BOTH bands — margin-top clears the sticky
+     preview + header, margin-bottom clears the tool bar. */
+  body.studio #editor .timeline,
+  body.studio #editor :is(button, .btn, a, select, input, textarea, summary, .tl-add, .ttx-add, .tc-add) {
+    scroll-margin-top: 54vh; scroll-margin-bottom: 92px;
   }
-  body.studio .capcut-soon {
-    opacity: .45; position: relative;
-  }
+
+  /* Features that do not exist yet stay visible but disabled with a "Soon" tag — never faked. */
+  body.studio .capcut-soon { opacity: .45; position: relative; }
   body.studio .capcut-soon::after {
     content: "Soon"; font-size: 10px; background: #6d28d9; color: #fff;
     border-radius: 999px; padding: 1px 6px; margin-left: 6px;
@@ -91,23 +103,21 @@ body.studio .editor-topbar .export-cta {
   }
 }
 
-/* Fix-1.2 — Preview bottom controls: wrap inside the stage instead of
-   running off the right edge, shrink the seek bar first, and lift the row
-   above the fixed bottom-right Netlify badge zone. The badge is NOT
-   removed; controls simply no longer sit under it. */
-body.studio .stage .transport {
-  flex-wrap: wrap; row-gap: 8px; column-gap: 8px;
-  margin-bottom: 40px; padding-right: 4px; box-sizing: border-box;
-}
-body.studio .stage .transport .seek {
-  flex: 1 1 120px; min-width: 0;
-}
-body.studio .stage .transport .time {
-  min-width: 0; white-space: nowrap; font-size: 12px;
-}
-body.studio .stage .transport .btn,
-body.studio .stage .transport label.btn {
-  flex: none; white-space: nowrap;
+/* Fix-1.2 — Preview bottom controls (DESKTOP/TABLET only): wrap inside the stage
+   instead of running off the right edge, shrink the seek bar first, and lift the row
+   above the fixed bottom-right Netlify badge zone. The badge is NOT removed; controls
+   simply no longer sit under it. Phones keep their own compact single-row transport
+   (styles.css), so this must not run there — on a phone the 40px lift + wrap would
+   make the pinned preview too tall. */
+@media (min-width: 761px) {
+  body.studio .stage .transport {
+    flex-wrap: wrap; row-gap: 8px; column-gap: 8px;
+    margin-bottom: 40px; padding-right: 4px; box-sizing: border-box;
+  }
+  body.studio .stage .transport .seek { flex: 1 1 120px; min-width: 0; }
+  body.studio .stage .transport .time { min-width: 0; white-space: nowrap; font-size: 12px; }
+  body.studio .stage .transport .btn,
+  body.studio .stage .transport label.btn { flex: none; white-space: nowrap; }
 }
 
 /* Fix-1.3 — Details panel too narrow ("Style's owr"): keep its text
