@@ -1777,6 +1777,44 @@ await step('captions: horizontal position slider moves the caption left and righ
   await ctx.close();
 });
 
+await step('per-clip context toolbar: tap the clip for Replace/Trim; unbuilt actions show "Soon"', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForTimeout(300);
+  // Tapping the video clip selects it and opens the context toolbar (dispatch to avoid canvas hit-test flakiness).
+  const r = await m.evaluate(() => {
+    const fire = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fire(document.querySelector('.tl-film'));
+    const ctx = document.querySelector('.tl-ctx'), app = document.querySelector('.app');
+    const out = {
+      ctxVisible: !ctx.hidden,
+      videoSel: document.querySelector('.tl-video').classList.contains('sel'),
+      clipSel: app.classList.contains('clip-sel'),
+      soonDisabled: [...ctx.querySelectorAll('.capcut-soon')].every(x => x.disabled),
+      real: [...ctx.querySelectorAll('button[data-cact]')].filter(x => !x.disabled).map(x => x.dataset.cact),
+      barHidden: getComputedStyle(document.querySelector('#editor .panel.tools .tool-tabs')).display === 'none',
+    };
+    let rep = false; document.getElementById('fileIn').addEventListener('click', e => { e.preventDefault(); rep = true; }, { once: true });
+    fire(ctx.querySelector('[data-cact="replace"]')); out.replaceFired = rep;
+    fire(ctx.querySelector('[data-cact="close"]')); out.closed = ctx.hidden && !app.classList.contains('clip-sel');
+    return out;
+  });
+  assert.equal(r.ctxVisible, true, 'context toolbar opens on clip tap');
+  assert.equal(r.videoSel, true);
+  assert.deepEqual(r.real.sort(), ['close', 'replace', 'trim']);
+  assert.equal(r.soonDisabled, true, 'Speed/Volume/Duplicate are disabled (Soon), not faked');
+  assert.equal(r.barHidden, true, 'phone bottom tool bar is replaced by the context toolbar');
+  assert.equal(r.replaceFired, true, 'Replace triggers the file picker');
+  assert.equal(r.closed, true, 'closing returns to the normal editor');
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

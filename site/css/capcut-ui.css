@@ -170,3 +170,24 @@ body.studio .tw:hover,
 body.studio .tw.sel {
   overflow: visible; z-index: 5;
 }
+
+/* ---- Per-clip context toolbar (all widths) ---- */
+/* Not-yet-built clip actions (Speed, Volume, Duplicate) stay visible but disabled
+   with a "Soon" tag, so nothing looks live that isn't. */
+.tl-ctx { padding-top: 10px; }
+.tl-ctx .capcut-soon { position: relative; opacity: .5; }
+.tl-ctx .capcut-soon::after {
+  content: "Soon"; position: absolute; top: 0; right: 2px;
+  font-size: 8px; line-height: 1.3; background: #6d28d9; color: #fff;
+  border-radius: 999px; padding: 0 4px;
+}
+/* Phone: selecting a clip swaps the bottom tool bar for this context toolbar. */
+@media (max-width: 760px) {
+  body.studio #editor.clip-sel .panel.tools .tool-tabs { display: none; }
+  body.studio #editor.clip-sel .timeline .tl-ctx {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; margin: 0;
+    border-radius: 0; box-sizing: border-box;
+    padding: 10px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, .1);
+  }
+}
