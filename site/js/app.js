@@ -113,7 +113,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -1249,7 +1249,7 @@ async function loadImage(file) {
   video.pause(); video.removeAttribute('src'); video.load();
   if (S.fileURL) URL.revokeObjectURL(S.fileURL);
   S.fileURL = url; S.file = file; S.image = img; S.wave = null; S.audioP = null;
-  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null }); S.textSel = null; }
+  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null }); S.textSel = null; }
   S.segments = []; S.selected = -1;
   document.body.classList.add('photo');
   hist = []; hIdx = -1; commit();
@@ -1303,7 +1303,7 @@ async function loadFile(file) {
   S.file = file;
   S.image = null; document.body.classList.remove('photo');
   // A new file is a new project: its own text, sounds and shorts (the chosen look stays).
-  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null }); S.textSel = null; }
+  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null }); S.textSel = null; }
   S.decodeFailed = false;
   // Start reading the sound right away, so it's ready by the time captions are requested.
   S.audioP = decodeFull(file); S.audioP.catch(() => {});
@@ -1973,6 +1973,70 @@ function ensureAudioGraph() {
   }
 }
 
+// ---- Music / voiceover: the user's own audio file, played with the video and baked into the
+// export. It joins the same audio graph as the video, so it is heard in preview (speakerGain) and
+// captured by the real-time export (audioDest). Plays on top of the original sound. Session-only.
+let musicEl = null, musicNode = null, musicGain = null;
+function ensureMusicGraph() {
+  if (!musicEl) return;
+  ensureAudioGraph();
+  if (!musicNode) {
+    musicNode = audioCtx.createMediaElementSource(musicEl);
+    musicGain = audioCtx.createGain();
+    musicNode.connect(musicGain);
+    musicGain.connect(speakerGain);  // audible in preview; muted (with the video) during export
+    musicGain.connect(audioDest);    // captured into the exported file
+  }
+}
+const hasMusic = () => !!(S.o.music && musicEl && musicEl.src);
+/** Keep the music lined up with the video: start offset, play/pause together, volume. */
+function syncMusic() {
+  if (!musicEl || !S.o.music) return;
+  const m = S.o.music, want = (video.currentTime || 0) - (m.start || 0);
+  if (musicGain) musicGain.gain.value = (m.volume ?? 80) / 100;
+  if (want < 0 || video.paused || S.mode !== 'file') { if (!musicEl.paused) musicEl.pause(); return; }
+  if (Math.abs(musicEl.currentTime - want) > 0.25) musicEl.currentTime = Math.min(want, musicEl.duration || want);
+  if (musicEl.paused) { audioCtx && audioCtx.resume(); musicEl.play().catch(() => {}); }
+}
+function loadMusic(file) {
+  if (!file) return;
+  removeMusic(true);
+  const url = URL.createObjectURL(file);
+  musicEl = new Audio(); musicEl.src = url; musicEl.preload = 'auto'; musicEl.crossOrigin = 'anonymous';
+  musicEl.onloadedmetadata = () => { S.o.music = { ...(S.o.music || {}), dur: musicEl.duration || 0 }; renderMusicUI(); timeline.render(); };
+  S.o.music = { name: file.name, url, start: 0, volume: 80, dur: 0 };
+  ensureMusicGraph();
+  commit(); renderMusicUI(); timeline.render();
+  toast('Music added. It plays with the video and is included when you export.', 5000);
+}
+function removeMusic(quiet) {
+  if (musicEl) { try { musicEl.pause(); } catch { /* ignore */ } }
+  if (S.o.music && S.o.music.url) { try { URL.revokeObjectURL(S.o.music.url); } catch { /* ignore */ } }
+  // The media-element graph node can't be rebuilt for a new element, so drop the element reference;
+  // a fresh element + node are made on the next import.
+  if (musicNode) { try { musicNode.disconnect(); } catch { /* ignore */ } musicNode = null; }
+  musicEl = null;
+  if (!quiet) { S.o.music = null; commit(); renderMusicUI(); timeline.render(); toast('Music removed.'); }
+}
+function renderMusicUI() {
+  const m = S.o.music, card = $('musicCard');
+  if (!card) return;
+  card.hidden = !m;
+  $('musicAddBtn').firstChild.textContent = m ? '♪ Replace music' : '♪ Import music';
+  if (!m) return;
+  $('musicName').textContent = m.name || 'music';
+  $('musicVol').value = m.volume ?? 80; $('musicVolVal').textContent = `${m.volume ?? 80}%`;
+  $('musicAt').textContent = `Starts at ${fmt(m.start || 0)}${m.dur ? ` · ${fmt(m.dur)} long` : ''}`;
+}
+if ($('musicIn')) {
+  $('musicIn').onchange = e => { const f = e.target.files && e.target.files[0]; if (f) loadMusic(f); e.target.value = ''; };
+  $('musicDel').onclick = () => removeMusic();
+  $('musicVol').oninput = e => { if (S.o.music) { S.o.music.volume = +e.target.value; $('musicVolVal').textContent = `${e.target.value}%`; if (musicGain) musicGain.gain.value = +e.target.value / 100; } };
+  $('musicVol').onchange = () => { if (S.o.music) commit(); };
+  $('musicHere').onclick = () => { if (S.o.music) { S.o.music.start = +(video.currentTime || 0).toFixed(2); commit(); renderMusicUI(); timeline.render(); syncMusic(); } };
+  $('musicStart0').onclick = () => { if (S.o.music) { S.o.music.start = 0; commit(); renderMusicUI(); timeline.render(); syncMusic(); } };
+}
+
 let exportJob = null;
 function setExportUI(on) {
   S.exporting = on;
@@ -2111,11 +2175,11 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
       if (!res) { toast('This browser can’t export the cut version. Use Chrome or Edge on a computer, or remove the cuts (Ctrl+Z).', 8000); return; }
       const name = `${S.file.name.replace(/\.[^.]+$/, '')}-${S.o.clip ? shortTag(range) : 'edited'}.mp4`;
       download(res, name);
-      status(`Exported “${name}” (${fmtBytes(res.size)}, ${fmt(outLen)} after cuts) in ${((performance.now() - t0x) / 1000).toFixed(1)} s.${allSounds().length ? ' Sound effects aren’t in cut exports yet.' : ''}`);
+      status(`Exported “${name}” (${fmtBytes(res.size)}, ${fmt(outLen)} after cuts) in ${((performance.now() - t0x) / 1000).toFixed(1)} s.${allSounds().length ? ' Sound effects aren’t in cut exports yet.' : ''}${hasMusic() ? ' Music isn’t in cut exports yet — export without cuts to include it.' : ''}`);
       window.__vczLastExport = 'cuts';
       return;
     }
-    if (kind === 'video' && !window.__vczNoFast && !allSounds().some(f => f.t >= range.start && f.t < range.end)) {
+    if (kind === 'video' && !window.__vczNoFast && !hasMusic() && !allSounds().some(f => f.t >= range.start && f.t < range.end)) {
       S.exportVia = 'fast';
       const bitrate = Math.round(Math.min(80e6, Math.max(srcBps * 1.5, size.w * size.h * 30 * 0.15, 4e6)));
       const t0x = performance.now();
@@ -2141,7 +2205,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
         return;
       }
     }
-    if (kind === 'video' && !window.__vczNoWebCodecs) {
+    if (kind === 'video' && !window.__vczNoWebCodecs && !hasMusic()) {
       const sounds = allSounds().filter(f => f.t >= range.start && f.t < range.end).map(f => ({ ...f, t: f.t - range.start }));
       S.exportVia = 'webcodecs';
       const wc = await exportWebCodecs({
@@ -2442,6 +2506,7 @@ function loop() {
     highlightSeg(t);
     timeline && !$('timeline').hidden && timeline.tick(t);
     fireSounds(t);
+    if (hasMusic()) syncMusic();
   }
   requestAnimationFrame(loop);
 }
@@ -3315,4 +3380,4 @@ if (location.hash === '#live') { openEditor(); setMode('live'); }
 requestAnimationFrame(loop);
 
 // Exposed for automated end-to-end tests only.
-window.__vcz = { S, tpl, setSegments, C, video };
+window.__vcz = { S, tpl, setSegments, C, video, music: () => musicEl, hasMusic };

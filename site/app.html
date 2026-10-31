@@ -344,7 +344,16 @@
         <div class="thumb-grid" id="thumbGrid"></div>
         <button class="btn btn-primary thumb-dl" id="thumbExport" type="button" hidden>⬇ Download thumbnail</button>
       </div>
-      <div class="panel-b" id="paneSnd" role="tabpanel" hidden></div>
+      <div class="panel-b" id="paneSnd" role="tabpanel" hidden>
+        <h3 class="more-h">Music &amp; voiceover</h3>
+        <label class="btn btn-primary btn-sm music-add" id="musicAddBtn" for="musicIn">♪ Import music<input type="file" id="musicIn" accept="audio/*" hidden></label>
+        <div class="music-card" id="musicCard" hidden>
+          <div class="music-row"><b id="musicName">track.mp3</b><button class="btn btn-sm" id="musicDel" type="button">🗑 Remove</button></div>
+          <div class="field"><label for="musicVol">Volume <b id="musicVolVal">80%</b></label><input type="range" id="musicVol" min="0" max="100" value="80"></div>
+          <div class="row"><button class="btn btn-sm" id="musicHere" type="button">Start at playhead</button><button class="btn btn-sm" id="musicStart0" type="button">Start at 0:00</button><span class="music-at" id="musicAt"></span></div>
+        </div>
+        <p class="hint">Add your own music or voiceover — it plays with the video and is baked into the export. It plays on top of the original sound (not in cut exports yet), and your file stays on your device.</p>
+      </div>
       <div class="panel-b" id="paneTpl" role="tabpanel" hidden>
         <div class="style-for-row" id="styleForRow"><span>Style goes on</span><div class="seg-ctl" id="styleFor" role="radiogroup" aria-label="Style goes on"><button data-v="cap" role="radio" type="button">💬 Captions</button><button data-v="text" role="radio" type="button">T Text</button></div></div>
         <div class="tabs" id="langTabs" aria-label="Preview language"></div>
