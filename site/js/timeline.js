@@ -23,11 +23,12 @@ export function mountTimeline(root, api) {
     <div class="tl-ctx" role="toolbar" aria-label="Clip tools" hidden>
       <button type="button" data-cact="replace" title="Swap this video for another file">🔄<span>Replace</span></button>
       <button type="button" data-cact="trim" title="Trim the clip's start and end">✂<span>Trim</span></button>
-      <button type="button" data-cact="speed" class="capcut-soon" disabled title="Clip speed — coming soon">⏩<span>Speed</span></button>
-      <button type="button" data-cact="volume" class="capcut-soon" disabled title="Clip volume — coming soon">🔊<span>Volume</span></button>
+      <button type="button" data-cact="speed" title="Change the clip's playback speed">⏩<span>Speed</span></button>
+      <button type="button" data-cact="volume" title="Change the clip's volume">🔊<span>Volume</span></button>
       <button type="button" data-cact="dup" class="capcut-soon" disabled title="Duplicate — coming soon">⧉<span>Duplicate</span></button>
       <button type="button" data-cact="close" class="tl-ctx-x" aria-label="Close clip tools">✕</button>
     </div>
+    <div class="tl-ctx-pop" hidden></div>
     <div class="tl-scroll" tabindex="0" aria-label="Timeline: click to jump, double-click a word to edit it, Delete removes the selected word">
       <div class="tl-inner">
         <div class="tl-ruler"></div>
@@ -95,21 +96,45 @@ export function mountTimeline(root, api) {
   // toolbar shows its actions. Real ones (Replace, Trim) work; not-yet-built ones
   // (Speed, Volume, Duplicate) are visible but disabled with a "Soon" tag — never faked.
   const ctx = root.querySelector('.tl-ctx');
+  const ctxPop = root.querySelector('.tl-ctx-pop');
   let clipSel = false;
   function setClipSel(on) {
     clipSel = on && !!api.duration();
     ctx.hidden = !clipSel;
+    if (!clipSel) closePop();
     root.querySelector('.tl-video').classList.toggle('sel', clipSel);
     const ed = root.closest('.app'); if (ed) ed.classList.toggle('clip-sel', clipSel); // CSS swaps the phone bottom bar for this toolbar
     if (clipSel) { sfxSel = null; sel = null; api.selectWord && api.selectWord(null); }
   }
+  let popFor = null;
+  function closePop() { ctxPop.hidden = true; ctxPop.innerHTML = ''; popFor = null; ctx.querySelectorAll('button[data-cact]').forEach(b => b.classList.remove('open')); }
+  function openPop(which) {
+    if (popFor === which) return closePop();
+    closePop(); popFor = which;
+    ctx.querySelector(`[data-cact="${which}"]`).classList.add('open');
+    if (which === 'speed') {
+      const cur = api.speed();
+      ctxPop.innerHTML = '<span class="ctxp-lab">Speed</span>' + [0.25, 0.5, 1, 1.5, 2, 3].map(v => `<button type="button" data-spd="${v}" class="${v === cur ? 'on' : ''}">${v}×</button>`).join('');
+    } else if (which === 'volume') {
+      const v = api.clipVol();
+      ctxPop.innerHTML = `<span class="ctxp-lab">Volume <b id="ctxVolVal">${v}%</b></span><input type="range" id="ctxVol" min="0" max="200" value="${v}">`;
+    }
+    ctxPop.hidden = false;
+  }
+  ctxPop.onclick = e => {
+    const sb = e.target.closest('[data-spd]');
+    if (sb) { api.setSpeed(+sb.dataset.spd); ctxPop.querySelectorAll('[data-spd]').forEach(x => x.classList.toggle('on', x === sb)); }
+  };
+  ctxPop.oninput = e => { if (e.target.id === 'ctxVol') { api.setClipVol(+e.target.value); const l = ctxPop.querySelector('#ctxVolVal'); if (l) l.textContent = `${e.target.value}%`; } };
+  ctxPop.onchange = e => { if (e.target.id === 'ctxVol') api.setClipVolSave(); };
   ctx.onclick = e => {
     const a = e.target.closest('button'); if (!a) return;
     const act = a.dataset.cact;
     if (act === 'close') return setClipSel(false);
     if (a.disabled) return;
-    if (act === 'replace') api.replaceVideo && api.replaceVideo();
-    if (act === 'trim') api.flashTrim && api.flashTrim();
+    if (act === 'replace') { closePop(); api.replaceVideo && api.replaceVideo(); }
+    if (act === 'trim') { closePop(); api.flashTrim && api.flashTrim(); }
+    if (act === 'speed' || act === 'volume') openPop(act);
   };
   root.querySelector('.tl-video').addEventListener('click', e => {
     if (e.target.closest('.tv-h, .tv-cut')) return; // handles/cuts keep their own behaviour

@@ -1806,8 +1806,8 @@ await step('per-clip context toolbar: tap the clip for Replace/Trim; unbuilt act
   });
   assert.equal(r.ctxVisible, true, 'context toolbar opens on clip tap');
   assert.equal(r.videoSel, true);
-  assert.deepEqual(r.real.sort(), ['close', 'replace', 'trim']);
-  assert.equal(r.soonDisabled, true, 'Speed/Volume/Duplicate are disabled (Soon), not faked');
+  assert.deepEqual(r.real.sort(), ['close', 'replace', 'speed', 'trim', 'volume']);
+  assert.equal(r.soonDisabled, true, 'Duplicate stays disabled (Soon), not faked');
   assert.equal(r.barHidden, true, 'phone bottom tool bar is replaced by the context toolbar');
   assert.equal(r.replaceFired, true, 'Replace triggers the file picker');
   assert.equal(r.closed, true, 'closing returns to the normal editor');
@@ -1852,6 +1852,42 @@ await step('music import: plays with the video, routes export to include the aud
   // Remove puts it back to no music.
   await m.click('#musicDel');
   assert.equal(await m.evaluate(() => window.__vcz.hasMusic()), false);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
+await step('per-clip speed + volume: set from the context toolbar, applied to preview and export', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message)); m.on('dialog', d => d.accept());
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForTimeout(400);
+  const r = await m.evaluate(() => {
+    const fire = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fire(document.querySelector('.tl-film'));                       // select clip
+    fire(document.querySelector('.tl-ctx [data-cact="speed"]'));    // open speed popover
+    const pop = document.querySelector('.tl-ctx-pop');
+    const hasPresets = !pop.hidden && !!pop.querySelector('[data-spd="2"]');
+    fire(pop.querySelector('[data-spd="2"]'));                      // 2x
+    const sp = { speed: window.__vcz.S.o.speed, rate: window.__vcz.video.playbackRate };
+    fire(document.querySelector('.tl-ctx [data-cact="volume"]'));   // open volume popover
+    const vol = document.querySelector('#ctxVol');
+    vol.value = 150; vol.dispatchEvent(new Event('input', { bubbles: true })); vol.dispatchEvent(new Event('change', { bubbles: true }));
+    return { hasPresets, sp, vol: window.__vcz.S.o.vol };
+  });
+  assert.equal(r.hasPresets, true, 'speed presets show in the popover');
+  assert.equal(r.sp.speed, 2); assert.equal(r.sp.rate, 2, 'preview plays at 2x');
+  assert.equal(r.vol, 150, 'clip volume set to 150%');
+  // Export at 2x: the recorder path is used and the output is about half as long.
+  const dl = m.waitForEvent('download', { timeout: 120000 });
+  await m.click('#exportBtn'); await m.waitForSelector('#xDlg[open]'); await m.click('#xGo');
+  const d = await dl; const file = join(OUT, `sv-${d.suggestedFilename()}`); await d.saveAs(file);
+  assert.equal(await m.evaluate(() => window.__vczLastExport), 'mediarecorder');
+  const dur = +execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString().trim();
+  assert.ok(dur > 2.3 && dur < 3.9, `2x export is about half of ~6s: ${dur}s`);
   assert.deepEqual(errs, []);
   await ctx.close();
 });
