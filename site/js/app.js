@@ -580,6 +580,12 @@ var timeline = mountTimeline($('timeline'), {
   autoCut: () => removeSilences(),
   autoEdit: () => autoEdit(),
   claudeEdit: () => claudeEdit(),
+  replaceVideo: () => { const el = $('fileIn'); if (el) el.click(); },
+  flashTrim: () => {
+    const vr = document.querySelector('#timeline .tl-video');
+    if (vr) { vr.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); vr.querySelectorAll('.tv-h').forEach(h => { h.classList.add('flash'); setTimeout(() => h.classList.remove('flash'), 1800); }); }
+    toast('Drag the handles ◁ ▷ on the video track to trim the clip’s start and end.', 5000);
+  },
   setTrim: (start, end, save) => {
     const d = video.duration || 0;
     S.o.trim = start <= 0.05 && end >= d - 0.05 ? null : { start: +start.toFixed(2), end: +end.toFixed(2) };

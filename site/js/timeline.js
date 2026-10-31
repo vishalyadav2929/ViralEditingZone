@@ -20,6 +20,14 @@ export function mountTimeline(root, api) {
       <button type="button" class="tl-add" aria-haspopup="true">+ Sound</button>
       <span class="tl-zoom"><button type="button" data-z="-1" aria-label="Zoom out">−</button><button type="button" data-z="1" aria-label="Zoom in">+</button></span>
     </div>
+    <div class="tl-ctx" role="toolbar" aria-label="Clip tools" hidden>
+      <button type="button" data-cact="replace" title="Swap this video for another file">🔄<span>Replace</span></button>
+      <button type="button" data-cact="trim" title="Trim the clip's start and end">✂<span>Trim</span></button>
+      <button type="button" data-cact="speed" class="capcut-soon" disabled title="Clip speed — coming soon">⏩<span>Speed</span></button>
+      <button type="button" data-cact="volume" class="capcut-soon" disabled title="Clip volume — coming soon">🔊<span>Volume</span></button>
+      <button type="button" data-cact="dup" class="capcut-soon" disabled title="Duplicate — coming soon">⧉<span>Duplicate</span></button>
+      <button type="button" data-cact="close" class="tl-ctx-x" aria-label="Close clip tools">✕</button>
+    </div>
     <div class="tl-scroll" tabindex="0" aria-label="Timeline: click to jump, double-click a word to edit it, Delete removes the selected word">
       <div class="tl-inner">
         <div class="tl-ruler"></div>
@@ -83,9 +91,35 @@ export function mountTimeline(root, api) {
     root.querySelectorAll('.tl-pos button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.pos - p) < 0.12));
   }
 
-  // Click on empty timeline → jump there.
+  // Per-clip context toolbar: tap the video track to select the clip; a CapCut-style
+  // toolbar shows its actions. Real ones (Replace, Trim) work; not-yet-built ones
+  // (Speed, Volume, Duplicate) are visible but disabled with a "Soon" tag — never faked.
+  const ctx = root.querySelector('.tl-ctx');
+  let clipSel = false;
+  function setClipSel(on) {
+    clipSel = on && !!api.duration();
+    ctx.hidden = !clipSel;
+    root.querySelector('.tl-video').classList.toggle('sel', clipSel);
+    const ed = root.closest('.app'); if (ed) ed.classList.toggle('clip-sel', clipSel); // CSS swaps the phone bottom bar for this toolbar
+    if (clipSel) { sfxSel = null; sel = null; api.selectWord && api.selectWord(null); }
+  }
+  ctx.onclick = e => {
+    const a = e.target.closest('button'); if (!a) return;
+    const act = a.dataset.cact;
+    if (act === 'close') return setClipSel(false);
+    if (a.disabled) return;
+    if (act === 'replace') api.replaceVideo && api.replaceVideo();
+    if (act === 'trim') api.flashTrim && api.flashTrim();
+  };
+  root.querySelector('.tl-video').addEventListener('click', e => {
+    if (e.target.closest('.tv-h, .tv-cut')) return; // handles/cuts keep their own behaviour
+    setClipSel(!clipSel);
+  });
+
+  // Click on empty timeline → jump there (and drop the clip selection).
   inner.addEventListener('click', e => {
-    if (e.target.closest('.tw, .tc, .ttx, .tv-h, .tv-cut')) return;
+    if (e.target.closest('.tw, .tc, .ttx, .tv-h, .tv-cut, .tl-video')) return;
+    if (clipSel) setClipSel(false);
     const x = e.clientX - inner.getBoundingClientRect().left;
     api.seek(Math.max(0, x / pps));
   });
