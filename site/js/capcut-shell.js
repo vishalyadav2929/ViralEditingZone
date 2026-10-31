@@ -1,24 +1,14 @@
 // CapCut-style shell — PATCH ONLY. No caption, template or ASR logic here.
-// It only toggles a body class and MOVES existing DOM nodes, so every existing
-// click handler keeps working and existing IDs are never renamed or removed.
+// It only toggles a body class; css/capcut-ui.css does the rest by RESTYLING existing
+// elements in place (no DOM is moved), so every existing click handler keeps working
+// and existing IDs are never renamed, removed or recreated.
 //
-// Scope: the CapCut look is applied on desktop/tablet widths (>=761px), where
-// css/capcut-ui.css turns the tool tabs into a side rail and tidies the panels.
-// On phones (<=760px) the editor keeps its existing, mobile-tuned layout
-// untouched — forcing a fixed bottom toolbar there fought that layout, so a
-// proper phone toolbar is left for a dedicated pass. Everything is reversible:
-// remove this file + css/capcut-ui.css from app.html and the old editor returns.
+// With body.studio set, capcut-ui.css turns the tool tabs into a side rail on
+// desktop/tablet and into a fixed bottom tool bar on phones, and tidies the panels.
+// Fully reversible: remove this file + css/capcut-ui.css from app.html and the old
+// editor returns, because styles.css / app.js were never edited for this.
 
-const DESKTOP = () => window.matchMedia('(min-width: 761px)').matches;
-
-function apply() {
-  const tabs = document.querySelector('.tool-tabs');
-  if (!tabs) return;
-  // Any tabs that an earlier state parked in a bottom bar come back to the rail.
-  const bar = document.querySelector('.capcut-bottombar');
-  if (bar) { tabs.append(...bar.querySelectorAll('.tool-tab')); bar.remove(); }
-  document.body.classList.toggle('studio', DESKTOP());
-}
+function apply() { if (document.querySelector('.tool-tabs')) document.body.classList.add('studio'); }
 
 // Features that do NOT exist yet must never look live. They stay visible but
 // disabled, exactly like the dashboard's existing "Soon" tools.
@@ -26,6 +16,5 @@ export function markSoon(button) {
   if (button) { button.classList.add('capcut-soon'); button.disabled = true; }
 }
 
-function start() { apply(); window.addEventListener('resize', apply); window.addEventListener('orientationchange', apply); }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-else start();
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+else apply();
