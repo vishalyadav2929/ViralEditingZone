@@ -1815,6 +1815,47 @@ await step('per-clip context toolbar: tap the clip for Replace/Trim; unbuilt act
   await ctx.close();
 });
 
+await step('music import: plays with the video, routes export to include the audio, Soon-free and on-device', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message)); m.on('dialog', d => d.accept());
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForTimeout(300);
+  await m.click('#ltabSnd');
+  await m.setInputFiles('#musicIn', join(FIX, 'music.mp3'));
+  await m.waitForSelector('#musicCard:not([hidden])');
+  await m.waitForTimeout(200);
+  const st = await m.evaluate(() => ({ name: window.__vcz.S.o.music.name, vol: window.__vcz.S.o.music.volume, hasMusic: window.__vcz.hasMusic(), elem: !!window.__vcz.music() }));
+  assert.equal(st.name, 'music.mp3');
+  assert.equal(st.vol, 80);
+  assert.equal(st.hasMusic, true);
+  assert.equal(st.elem, true, 'a music audio element is created');
+  // Volume + start controls update the plan.
+  await m.$eval('#musicVol', el => { el.value = 50; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await m.evaluate(() => { window.__vcz.video.currentTime = 2; });
+  await m.click('#musicHere');
+  const st2 = await m.evaluate(() => ({ vol: window.__vcz.S.o.music.volume, start: window.__vcz.S.o.music.start }));
+  assert.equal(st2.vol, 50); assert.equal(st2.start, 2);
+  // Export: with music, it must go through the real-time recorder so the music is baked in, and the file has audio.
+  await m.click('#musicStart0');
+  const dl = m.waitForEvent('download', { timeout: 120000 });
+  await m.click('#exportBtn'); await m.waitForSelector('#xDlg[open]'); await m.click('#xGo');
+  const d = await dl; const file = join(OUT, `music-${d.suggestedFilename()}`); await d.saveAs(file);
+  assert.equal(await m.evaluate(() => window.__vczLastExport), 'mediarecorder', 'music forces the recorder path that bakes in the audio');
+  const streams = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file]).toString();
+  assert.match(streams, /audio/, 'exported file has an audio track');
+  const vol = execFileSync('sh', ['-c', `ffmpeg -i "${file}" -af volumedetect -vn -f null - 2>&1 | grep -o 'mean_volume: [-0-9.]*'`]).toString();
+  assert.ok(+vol.split(':')[1] > -40, `audio is present and not silent: ${vol.trim()}`);
+  // Remove puts it back to no music.
+  await m.click('#musicDel');
+  assert.equal(await m.evaluate(() => window.__vcz.hasMusic()), false);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

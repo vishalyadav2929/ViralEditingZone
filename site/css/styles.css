@@ -1155,3 +1155,10 @@ a.ig-dm[aria-disabled="true"] { opacity: .8; cursor: not-allowed; }
   .ig-dm--nav { padding: 7px 9px; }
   .book-cta { margin-top: 16px; }
 }
+
+/* Music / voiceover panel (Audio tab) */
+.music-add { margin-bottom: 10px; }
+.music-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--card); }
+.music-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.music-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-at { font-size: 12px; color: var(--muted); }
