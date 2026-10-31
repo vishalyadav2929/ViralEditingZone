@@ -113,7 +113,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -586,6 +586,15 @@ var timeline = mountTimeline($('timeline'), {
     if (vr) { vr.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); vr.querySelectorAll('.tv-h').forEach(h => { h.classList.add('flash'); setTimeout(() => h.classList.remove('flash'), 1800); }); }
     toast('Drag the handles ◁ ▷ on the video track to trim the clip’s start and end.', 5000);
   },
+  speed: () => S.o.speed || 1,
+  clipVol: () => (S.o.vol != null ? S.o.vol : 100),
+  setSpeed: v => { S.o.speed = +v || 1; applySpeed(); commit(); timeline.render(); toast(`Clip speed ${S.o.speed}×. Captions stay in sync; the export is ${S.o.speed}× too.`, 4000); },
+  setClipVol: v => {
+    S.o.vol = Math.max(0, Math.min(200, Math.round(+v)));
+    ensureAudioGraph(); if (videoGain) videoGain.gain.value = S.o.vol / 100;
+    commit();
+  },
+  setClipVolSave: () => commit(),
   setTrim: (start, end, save) => {
     const d = video.duration || 0;
     S.o.trim = start <= 0.05 && end >= d - 0.05 ? null : { start: +start.toFixed(2), end: +end.toFixed(2) };
@@ -1249,7 +1258,7 @@ async function loadImage(file) {
   video.pause(); video.removeAttribute('src'); video.load();
   if (S.fileURL) URL.revokeObjectURL(S.fileURL);
   S.fileURL = url; S.file = file; S.image = img; S.wave = null; S.audioP = null;
-  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null }); S.textSel = null; }
+  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null, speed: 1, vol: 100 }); S.textSel = null; }
   S.segments = []; S.selected = -1;
   document.body.classList.add('photo');
   hist = []; hIdx = -1; commit();
@@ -1303,7 +1312,7 @@ async function loadFile(file) {
   S.file = file;
   S.image = null; document.body.classList.remove('photo');
   // A new file is a new project: its own text, sounds and shorts (the chosen look stays).
-  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null }); S.textSel = null; }
+  if (!opening) { S.projectId = null; Object.assign(S.o, { clip: null, found: null, texts: [], sfx: [], sfxAuto: null, frame: null, overlay: null, music: null, speed: 1, vol: 100 }); S.textSel = null; }
   S.decodeFailed = false;
   // Start reading the sound right away, so it's ready by the time captions are requested.
   S.audioP = decodeFull(file); S.audioP.catch(() => {});
@@ -1926,7 +1935,7 @@ function stopLive() {
 }
 
 // ---------- recording & export ----------
-let recorder = null, audioCtx = null, mediaNode = null, audioDest = null, speakerGain = null;
+let recorder = null, audioCtx = null, mediaNode = null, audioDest = null, speakerGain = null, videoGain = null;
 function pickMime() {
   // MP4 only with H.264 video (plays everywhere). A bare 'video/mp4' can mean VP9-in-MP4, which iPhones can't play,
   // so without H.264 we record WebM instead.
@@ -1966,10 +1975,13 @@ function ensureAudioGraph() {
   audioCtx = audioCtx || new AC();
   if (!mediaNode) {
     mediaNode = audioCtx.createMediaElementSource(video);
+    videoGain = audioCtx.createGain();
+    videoGain.gain.value = (S.o.vol != null ? S.o.vol : 100) / 100; // the clip's own volume
     speakerGain = audioCtx.createGain();
     audioDest = audioCtx.createMediaStreamDestination();
-    mediaNode.connect(speakerGain).connect(audioCtx.destination);
-    mediaNode.connect(audioDest);
+    mediaNode.connect(videoGain);
+    videoGain.connect(speakerGain).connect(audioCtx.destination);
+    videoGain.connect(audioDest);
   }
 }
 
@@ -1989,11 +2001,19 @@ function ensureMusicGraph() {
   }
 }
 const hasMusic = () => !!(S.o.music && musicEl && musicEl.src);
+/** Play the video (and any music) at the clip's chosen speed. Captions key off video.currentTime
+ * (media time), so they stay in sync automatically at any speed — no retiming needed. */
+function applySpeed() {
+  const sp = S.o.speed || 1;
+  try { if (video) video.playbackRate = sp; } catch { /* some states reject it */ }
+  if (musicEl) { try { musicEl.playbackRate = sp; } catch { /* ignore */ } }
+}
 /** Keep the music lined up with the video: start offset, play/pause together, volume. */
 function syncMusic() {
   if (!musicEl || !S.o.music) return;
   const m = S.o.music, want = (video.currentTime || 0) - (m.start || 0);
   if (musicGain) musicGain.gain.value = (m.volume ?? 80) / 100;
+  if (musicEl && musicEl.playbackRate !== (S.o.speed || 1)) musicEl.playbackRate = S.o.speed || 1;
   if (want < 0 || video.paused || S.mode !== 'file') { if (!musicEl.paused) musicEl.pause(); return; }
   if (Math.abs(musicEl.currentTime - want) > 0.25) musicEl.currentTime = Math.min(want, musicEl.duration || want);
   if (musicEl.paused) { audioCtx && audioCtx.resume(); musicEl.play().catch(() => {}); }
@@ -2179,7 +2199,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
       window.__vczLastExport = 'cuts';
       return;
     }
-    if (kind === 'video' && !window.__vczNoFast && !hasMusic() && !allSounds().some(f => f.t >= range.start && f.t < range.end)) {
+    if (kind === 'video' && !window.__vczNoFast && !hasMusic() && (S.o.speed || 1) === 1 && (S.o.vol ?? 100) === 100 && !allSounds().some(f => f.t >= range.start && f.t < range.end)) {
       S.exportVia = 'fast';
       const bitrate = Math.round(Math.min(80e6, Math.max(srcBps * 1.5, size.w * size.h * 30 * 0.15, 4e6)));
       const t0x = performance.now();
@@ -2205,7 +2225,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
         return;
       }
     }
-    if (kind === 'video' && !window.__vczNoWebCodecs && !hasMusic()) {
+    if (kind === 'video' && !window.__vczNoWebCodecs && !hasMusic() && (S.o.speed || 1) === 1 && (S.o.vol ?? 100) === 100) {
       const sounds = allSounds().filter(f => f.t >= range.start && f.t < range.end).map(f => ({ ...f, t: f.t - range.start }));
       S.exportVia = 'webcodecs';
       const wc = await exportWebCodecs({
@@ -2278,6 +2298,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
         stopClock = () => clearInterval(timer);
       }
       paint(range.start);
+      applySpeed(); // export at the clip's chosen speed
       rec.start(1000);
       await video.play();
     }
@@ -2301,7 +2322,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
     // MediaRecorder WebM files have no duration header, so players can't show length or seek. Patch it in.
     if (ext === 'webm' && window.ysFixWebmDuration) {
       $('exportText').textContent = 'Finishing file…';
-      blob = await window.ysFixWebmDuration(blob, dur * 1000, { logger: false });
+      blob = await window.ysFixWebmDuration(blob, (dur / (S.o.speed || 1)) * 1000, { logger: false });
     }
     const suffix = S.o.clip ? shortTag(range) : kind === 'video' ? 'captioned' : kind === 'alpha' ? 'captions-transparent' : 'captions-greenscreen';
     const name = `${S.file.name.replace(/\.[^.]+$/, '')}-${suffix}.${ext}`;
@@ -2507,6 +2528,7 @@ function loop() {
     timeline && !$('timeline').hidden && timeline.tick(t);
     fireSounds(t);
     if (hasMusic()) syncMusic();
+    if (!S.exporting && (S.o.speed || 1) !== 1 && video.playbackRate !== (S.o.speed || 1)) applySpeed();
   }
   requestAnimationFrame(loop);
 }
