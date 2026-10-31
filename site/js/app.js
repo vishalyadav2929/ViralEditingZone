@@ -720,7 +720,13 @@ function addText() {
 }
 $('txtAdd').onclick = () => addText();
 $('txtAdd2').onclick = () => addText();
-$('txtTplPick').onclick = () => { showLTab('tpl'); toast('Pick a style for your text.'); };
+$('txtTplPick').onclick = () => {
+  showLTab('tpl');
+  // Bring the actual style previews into view — otherwise they sit below the language and
+  // filter chips and the panel looks empty ("where are the styles?").
+  const g = $('grid'); if (g) requestAnimationFrame(() => g.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  toast('Pick a style for your text — tap any preview below.', 4000);
+};
 $('txtTplClear').onclick = () => { S.textTpl = null; patchText({ tpl: null, ov: {} }); };
 TEXT_ANIMS.forEach(([v, n]) => { const o = document.createElement('option'); o.value = v; o.textContent = n; $('txtAnim').appendChild(o); });
 $('txtAnim').onchange = e => patchText({ anim: e.target.value || null });
