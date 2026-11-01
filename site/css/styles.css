@@ -1169,3 +1169,24 @@ a.ig-dm[aria-disabled="true"] { opacity: .8; cursor: not-allowed; }
 .music-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .music-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-at { font-size: 12px; color: var(--muted); }
+
+/* Editing Zone — "Choose your editing mode" cards (dashboard) */
+.mode-h { margin-top: 22px; }
+.mode-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 8px 0 4px; }
+.mode-card { position: relative; display: grid; gap: 6px; align-content: start; padding: 16px 14px 44px; min-height: 150px; border-radius: 16px; cursor: pointer; overflow: hidden; color: var(--text);
+  border: 1px solid #2a2340; background: linear-gradient(160deg, rgba(124,58,237,.18), rgba(30,27,46,.6) 60%); transition: border-color .15s, transform .15s, box-shadow .15s; }
+.mode-card:hover { transform: translateY(-2px); border-color: #7c3aed; box-shadow: 0 16px 40px rgba(124,58,237,.28); }
+.mode-card.popular { border-color: #7c3aed; background: linear-gradient(160deg, rgba(124,58,237,.35), rgba(30,27,46,.7) 65%); }
+.mode-card i { font-size: 26px; font-style: normal; }
+.mode-card b { font-size: 15px; }
+.mode-card span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.mode-tag { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: #7c3aed; color: #fff; border-radius: 999px; padding: 2px 8px; }
+@media (max-width: 1100px) { .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .mode-grid { grid-template-columns: 1fr; } .mode-card { min-height: 0; padding: 14px 14px 16px; } }
+
+/* Editing Zone header + compact brand band */
+.zone-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.zone-title { font-size: 30px; margin: 0; }
+.zone-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 640px; }
+.zone-band { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 20px 0 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg-2); }
+@media (max-width: 760px) { .zone-title { font-size: 24px; } .zone-band { gap: 12px; } }
