@@ -3345,17 +3345,20 @@ window.addEventListener('pagehide', () => { if (S.fileURL) URL.revokeObjectURL(S
 
 // ---------- home: live demo phones, trending strip, reveal-on-scroll ----------
 {
-  // Cinematic intro: CLICK HERE → warp speed → straight into the studio's Create project.
-  const intro = mountIntro($('introFx'));
-  $('introGo').onclick = () => {
-    intro.go(1000);
-    document.body.classList.add('warping');
-    setTimeout(() => {
-      document.body.classList.remove('warping');
-      $('startDrop').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      $('startDrop').classList.add('call'); setTimeout(() => $('startDrop').classList.remove('call'), 2200);
-    }, 750);
-  };
+  // The URL opens straight on the dashboard (no splash to click through). The cinematic intro
+  // stays in the page but hidden; mount it only if it's ever shown again.
+  if ($('intro') && !$('intro').hidden) {
+    const intro = mountIntro($('introFx'));
+    $('introGo').onclick = () => {
+      intro.go(1000);
+      document.body.classList.add('warping');
+      setTimeout(() => {
+        document.body.classList.remove('warping');
+        $('startDrop').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $('startDrop').classList.add('call'); setTimeout(() => $('startDrop').classList.remove('call'), 2200);
+      }, 750);
+    };
+  }
   const demo = [['ph1', 'crazy', 'ye trick sabko pata honi chahiye', 280], ['ph2', 'emoji-pop', 'paisa bachao aur khush raho', 330], ['ph3', 'green-box', 'this is how reels go viral', 200]];
   for (const [cls, id, text, hue] of demo) { const c = document.querySelector(`.hero-phones .${cls}`); if (c) mountPhone(c, id, text, hue, { scene: true, w: 270, h: 480 }); }
   const strip = $('trendStrip');
