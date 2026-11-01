@@ -1777,6 +1777,12 @@ async function runGeneration({ lang, mode, quality }) {
       await translateTo(want);
     }
     if (S.wantClips && S.segments.length) { S.wantClips = false; showLTab('clips'); findAndShowClips(); }
+    // Editing mode chosen on the dashboard: apply it once the captions are ready.
+    if (S.editMode && S.segments.length) {
+      const m = S.editMode; S.editMode = null;
+      if (m === 'auto' || m === 'talkinghead') autoEdit();
+      else if (m === 'guided') { showLTab('tpl'); toast('Captions ready. Pick a trending style, then fine-tune.', 4000); }
+    }
   } catch (err) {
     if (err.message === 'needs-tap') {
       // iPhone needs a fresh tap before it will play the video to read its sound.
@@ -3334,6 +3340,17 @@ $('startGo').onclick = () => beginFromStart();
 $('startCancel').onclick = () => cancelTranscribe();
 $('startLive').onclick = e => { e.preventDefault(); openEditor(); setMode('live'); };
 $('startSkip').onclick = e => { e.preventDefault(); openEditor(); };
+// Editing Zone modes: remember the chosen mode, then the normal upload runs; the mode is applied
+// once captions are ready (see the generate flow). Shorts mode reuses the Long→Shorts flow.
+document.querySelectorAll('#modeGrid [data-mode]').forEach(el => el.addEventListener('click', e => {
+  const m = el.dataset.mode;
+  if (m === 'shorts') { e.preventDefault(); S.wantClips = true; $('lsOut').hidden = true; $('lsDlg').showModal ? $('lsDlg').showModal() : $('startFile').click(); return; }
+  S.editMode = m;
+  toast(m === 'auto' ? 'Auto Mode: after upload, captions + a full auto edit run on their own.'
+    : m === 'talkinghead' ? 'Talking Head Mode: captions, then pauses cut and a hook added automatically.'
+    : m === 'guided' ? 'Guided Mode: make captions, then pick a trending style and tweak.'
+    : 'Pro Mode: the full editor with the timeline.', 4500);
+}));
 $('photoFile').onchange = e => { startFile(e.target.files[0]); e.target.value = ''; };
 document.querySelectorAll('.js-live').forEach(a => { a.onclick = e => { e.preventDefault(); openEditor(); setMode('live'); }; });
 document.querySelector('[data-go="top"]').onclick = e => { e.preventDefault(); scrollTo({ top: 0, behavior: 'smooth' }); };

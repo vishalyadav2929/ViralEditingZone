@@ -93,27 +93,10 @@
       <div class="dash-foot"><a href="privacy.html">Privacy</a> · <a href="about.html#faq">Help</a><br><small>Free · no watermark · your video stays on your device</small></div>
     </aside>
     <div class="dash-main">
-      <section class="dash-hero">
-        <div class="hero-copy">
-          <img class="hero-logo" src="assets/brandbaazi-logo-640.png" alt="BrandBaazi — Digital Marketing &amp; Brand Growth" width="160" height="160">
-          <span class="hero-pill"><i class="dot" aria-hidden="true"></i> Free · No watermark · Made for Indian creators</span>
-          <h1 id="startTitle">Make <span class="grad-text">viral Reels</span> in minutes, right in your browser</h1>
-          <p>Auto captions in Hindi, Hinglish, English and 30+ languages, 90 animated caption styles, your own text, sounds, colour filters, and long video → Shorts. Your video is never uploaded.</p>
-          <ul class="hero-stats">
-            <li><b data-count="90">90</b><span>caption styles</span></li>
-            <li><b data-count="30">30+</b><span>languages</span></li>
-            <li><b>₹0</b><span>no sign-up</span></li>
-          </ul>
-          <div class="book-cta">
-            <p class="book-cta-text">Want BrandBaazi to edit for your brand?</p>
-            <a class="ig-dm ig-dm--hero js-ig-dm" href="#" aria-disabled="true" title="Instagram handle pending — set BRAND_INSTAGRAM in app.html to activate" aria-label="Book on Instagram — DM here (handle pending)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span class="ig-dm-label">DM here</span></a>
-            <p class="book-cta-sub">Book directly on Instagram — brands and editors welcome.</p>
-          </div>
-        </div>
-        <div class="hero-phones" aria-hidden="true">
-          <canvas class="phone ph1"></canvas><canvas class="phone ph2"></canvas><canvas class="phone ph3"></canvas>
-        </div>
-      </section>
+      <div class="zone-head">
+        <div><h1 class="zone-title">Editing Zone</h1><p class="zone-sub">From raw footage to viral content — AI + Pro editing, right in your browser. Your video never leaves your device.</p></div>
+        <span class="hero-pill"><i class="dot" aria-hidden="true"></i> Free · No watermark · Made for Indian creators</span>
+      </div>
       <label class="dash-create" id="startDrop">
         <input type="file" id="startFile" accept="video/*,audio/*,image/*" hidden>
         <span class="dash-plus" aria-hidden="true">+</span>
@@ -121,6 +104,14 @@
         <span>Drop a video or photo here, or click to choose · MP4, MOV, WEBM, JPG, PNG · up to 2 GB</span>
       </label>
       <input type="file" id="photoFile" accept="image/*" hidden>
+      <h2 class="dash-h mode-h">✨ Choose your editing mode</h2>
+      <div class="mode-grid" id="modeGrid">
+        <label class="mode-card popular" for="startFile" data-mode="auto"><span class="mode-tag">Popular</span><i aria-hidden="true">🚀</i><b>Auto Mode (AI)</b><span>Upload your video and get a ready-to-publish edit — captions, cut pauses, a hook and a viral style, automatically.</span></label>
+        <label class="mode-card" for="startFile" data-mode="guided"><i aria-hidden="true">🎛</i><b>Guided Mode</b><span>Make captions, then pick a trending style and tweak — the AI helps at each step.</span></label>
+        <label class="mode-card" for="startFile" data-mode="pro"><i aria-hidden="true">🎚</i><b>Pro Mode</b><span>Full timeline control: words, text, speed, volume, cuts, sounds and colour.</span></label>
+        <label class="mode-card" for="startFile" data-mode="talkinghead"><i aria-hidden="true">🧑‍💻</i><b>Talking Head Mode</b><span>Best for face-to-camera, podcasts and explainers: captions, zoom-worthy hooks, pauses cut.</span></label>
+        <a class="mode-card" href="#" id="modeShorts" data-mode="shorts"><i aria-hidden="true">🎞</i><b>Short &amp; Reels Mode</b><span>Turn a long vlog or podcast into 9:16 Shorts with hooks, captions and series parts.</span></a>
+      </div>
       <div class="dash-cards">
         <a href="#" class="dash-card c5" id="cardClips"><b>Long video → Shorts</b><span>Upload a vlog or podcast, or paste its YouTube link: 9:16 clips with hooks, captions and series parts</span><i aria-hidden="true">🎞</i></a>
         <label class="dash-card c1" for="startFile"><b>Auto captions</b><span>Hindi, Hinglish, English + 30 languages, word-by-word</span><i aria-hidden="true">💬</i></label>
@@ -128,6 +119,17 @@
         <label class="dash-card c2" for="photoFile"><b>Text on photo</b><span>Type on any photo, any font, download full size</span><i aria-hidden="true">🖼</i></label>
         <a class="dash-card c3" href="#live" id="startLive"><b>Live captions</b><span>Record with your camera, captions appear as you speak</span><i aria-hidden="true">🎥</i></a>
         <a class="dash-card c4" href="#" id="startSkip"><b>Blank project</b><span>Open the editor and add media later</span><i aria-hidden="true">✚</i></a>
+      </div>
+      <div class="zone-band">
+        <ul class="hero-stats">
+          <li><b data-count="90">90</b><span>caption styles</span></li>
+          <li><b data-count="30">30+</b><span>languages</span></li>
+          <li><b>₹0</b><span>no sign-up</span></li>
+        </ul>
+        <div class="book-cta">
+          <p class="book-cta-text">Want BrandBaazi to edit for your brand?</p>
+          <a class="ig-dm ig-dm--hero js-ig-dm" href="#" aria-disabled="true" title="Instagram handle pending — set BRAND_INSTAGRAM in app.html to activate" aria-label="Book on Instagram — DM here (handle pending)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span class="ig-dm-label">DM here</span></a>
+        </div>
       </div>
       <h2 class="dash-h reveal">How it works</h2>
       <ol class="how reveal">
