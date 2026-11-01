@@ -113,7 +113,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -386,6 +386,7 @@ function renderCapTpls() {
 }
 function syncCapStyle() {
   if (!$('capStyle')) return;
+  if ($('capShow')) $('capShow').checked = !S.o.hideCaps;
   $('capStyle').hidden = !S.file || !!S.image || S.mode !== 'file';
   const t = tpl();
   $('capTplName').textContent = baseTpl().name;
@@ -437,6 +438,8 @@ $('words').addEventListener('change', e => {
   renderSegs(); commit();
 });
 $('hinglish').onchange = e => { S.hinglish = e.target.checked; renderSegs(); commit(); };
+// Show / hide the captions on the video (preview + export). Text layers and everything else stay.
+if ($('capShow')) $('capShow').onchange = e => { S.o.hideCaps = !e.target.checked; commit(); if (timeline) timeline.render(); toast(e.target.checked ? 'Captions shown.' : 'Captions hidden — your text, clips and style stay. Turn back on any time.', 3500); };
 
 // Left: tools (what to add). Right: details of what's selected. On phones the styles sit under the video.
 const LTABS = [['ltabMedia', 'paneMedia', 'media'], ['ltabClips', 'paneClips', 'clips'], ['ltabThumb', 'paneThumb', 'thumb'], ['tabCaptions', 'paneCaptions', 'captions'], ['ltabText', 'paneText', 'text'], ['ltabSnd', 'paneSnd', 'snd'],
@@ -1048,7 +1051,7 @@ function autoEdit() {
     }
   }
   commit(); renderTextUI(); timeline.render();
-  if (!S.segments.length && !genRunning) { toast(`${done.length ? `Done: ${done.join(', ')}. ` : ''}Make captions too (✨ Auto captions) and press Auto edit again for umm/uh, style and a hook.`, 8000); return; }
+  if (!S.segments.length && !genRunning) { toast(`${done.length ? `Done: ${done.join(', ')}. ` : ''}Auto edit works from the captions (what is said). This video has none yet${S.wave && S.wave.length ? '' : ' — it may have no sound'}. Make captions first (✨ Auto captions), then press Auto edit for cuts, a hook and a viral style.`, 9000); return; }
   toast(done.length ? `Auto edit: ${done.join(' · ')}. Everything stays editable; Ctrl+Z undoes.` : 'Nothing to change: no long pauses or umm/uh found.', 8000);
 }
 // AI edit by Claude (only when the site owner has set it up; sends caption text, never media).
@@ -2178,7 +2181,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
     else if (kind === 'green') { xctx.fillStyle = '#00FF00'; xctx.fillRect(0, 0, size.w, size.h); }
     else if (video.readyState >= 2 && video.videoWidth) drawVideo(xctx, size.w, size.h);
     else { xctx.fillStyle = '#0d0d16'; xctx.fillRect(0, 0, size.w, size.h); }
-    drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, overlay ? { ...opts, fill: null } : opts);
+    if (!S.o.hideCaps) drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, overlay ? { ...opts, fill: null } : opts);
     drawTexts(xctx, size.w, size.h, t);
   };
   let stopClock = null;
@@ -2197,7 +2200,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
         file: S.file, width: size.w, height: size.h, keep, canvas: xcanvas, bitrate, job,
         draw: (src, t, w, h) => {
           drawVideo(xctx, size.w, size.h, src, w, h);
-          drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
+          if (!S.o.hideCaps) drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
           drawTexts(xctx, size.w, size.h, t);
         },
         onProgress: (p, t) => {
@@ -2221,7 +2224,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
         file: S.file, width: size.w, height: size.h, start: range.start, end: range.end, canvas: xcanvas, bitrate, job,
         draw: (src, t, w, h) => {
           drawVideo(xctx, size.w, size.h, src, w, h);
-          drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
+          if (!S.o.hideCaps) drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
           drawTexts(xctx, size.w, size.h, t);
         },
         onProgress: (p, t) => {
@@ -2504,7 +2507,7 @@ function drawFrame() {
       ctx.fillStyle = '#fff'; ctx.fillText(label, fs * 1.1, fs * 0.9); ctx.restore();
     } else {
       // Paused (editing): show the caption fully, so style changes are visible right away.
-      drawCaption(ctx, canvas.width, canvas.height, findChunk(fileChunks(), t), t, t0, video.paused ? { ...opts, settled: true } : opts);
+      if (!S.o.hideCaps) drawCaption(ctx, canvas.width, canvas.height, findChunk(fileChunks(), t), t, t0, video.paused ? { ...opts, settled: true } : opts);
     }
     S.textBoxes = drawTexts(ctx, canvas.width, canvas.height, t);
     drawTextSelection();
