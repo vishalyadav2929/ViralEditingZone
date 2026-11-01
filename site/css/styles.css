@@ -1190,3 +1190,27 @@ a.ig-dm[aria-disabled="true"] { opacity: .8; cursor: not-allowed; }
 .zone-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 640px; }
 .zone-band { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 20px 0 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg-2); }
 @media (max-width: 760px) { .zone-title { font-size: 24px; } .zone-band { gap: 12px; } }
+
+/* ===== Futuristic neon theme (BrandBaazi Editing Zone) — cosmetic layer, dashboard-focused ===== */
+body.studio {
+  background:
+    radial-gradient(55% 45% at 10% -8%, rgba(124,58,237,.28), transparent 60%),
+    radial-gradient(45% 40% at 102% -5%, rgba(192,38,211,.20), transparent 60%),
+    radial-gradient(60% 50% at 50% 118%, rgba(139,92,246,.12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+/* Neon gradient headings */
+.zone-title, .dash-h.mode-h { background: linear-gradient(90deg, #c084fc, #8b5cf6 45%, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* Glassy, glowing Create zone */
+.dash-create { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 0 0 1px rgba(192,132,252,.35), 0 22px 60px rgba(124,58,237,.38); }
+/* Glass + neon edge on cards */
+.mode-card, .dash-card { -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); border-color: rgba(168,85,247,.28); }
+.mode-card:hover, .dash-card:hover { box-shadow: 0 0 0 1px rgba(192,132,252,.55), 0 18px 46px rgba(124,58,237,.32); }
+.mode-card.popular { box-shadow: 0 0 0 1px rgba(192,132,252,.5), 0 14px 40px rgba(124,58,237,.3); }
+/* Sidebar: subtle neon wash + glowing active item */
+.dash-side { background: linear-gradient(180deg, rgba(124,58,237,.08), transparent 26%); }
+.dash-nav a.on { box-shadow: inset 0 0 0 1px rgba(168,85,247,.45), 0 0 16px rgba(124,58,237,.28); }
+/* Brand pill + stats glow */
+.hero-pill { box-shadow: 0 0 18px rgba(124,58,237,.3); }
+.zone-band { background: linear-gradient(160deg, rgba(124,58,237,.1), rgba(30,27,46,.5)); border-color: rgba(168,85,247,.25); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
