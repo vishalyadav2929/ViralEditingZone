@@ -482,6 +482,24 @@ await step('phone: full screen works without the Fullscreen API (iPhone), typing
   await ctx.close();
 });
 
+await step('home: Auto-run toggle exists, is off by default, and controls S.autoRun', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  assert.equal(await m.locator('#autoRun').count(), 1, 'the on/off toggle is on the dashboard');
+  assert.equal(await m.isChecked('#autoRun'), false, 'off by default — nothing auto-edits itself');
+  assert.equal(await m.evaluate(() => window.__vcz.S.autoRun), false, 'S.autoRun starts false');
+  // Picking Auto Mode only remembers the intent; it must not edit anything by itself.
+  await m.click('#modeGrid [data-mode="auto"]');
+  assert.equal(await m.evaluate(() => window.__vcz.S.editMode), 'auto');
+  assert.equal(await m.evaluate(() => window.__vcz.S.autoRun), false, 'still off after choosing a mode');
+  await m.check('#autoRun');
+  assert.equal(await m.evaluate(() => window.__vcz.S.autoRun), true, 'turning it on flips the flag');
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('home: example videos show live captions on real clips (from examples/manifest.json)', async () => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   const m = await ctx.newPage();

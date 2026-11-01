@@ -15,7 +15,7 @@ import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
 import { TEXT_FONTS, newLayer, drawLayer, layersAt, hitLayer, layout } from './text-layers.js';
 import { findClips, cropRect, ASPECTS, aspectSize } from './clips.js';
 import { TEXT_ANIMS, animState, breakApart, kfSample, upsertKf } from './text-fx.js';
-import { onsetEnvelope, detectBeats, groupBeats } from './beats.js';
+import { onsetEnvelope, detectBeats, groupBeats, nearestBeat } from './beats.js';
 import { youtubeId, titleCheck } from './grow.js';
 import { seriesOrder, partOf, partLabel, seriesCaptions } from './series.js';
 import { SIZES, OVERLAYS, THUMBS, photoRect, drawOverlay } from './thumbs.js';
@@ -1035,6 +1035,13 @@ function removeSilences(quiet) {
   if (!quiet) toast(`Cut ${found.length} pause${found.length > 1 ? 's' : ''} (${saved.toFixed(1)} s shorter). Red parts on the video track are skipped; click one to bring it back. Ctrl+Z undoes.`, 7000);
   return saved;
 }
+/** Auto-run is off: captions are ready, so point the user at the Auto edit button instead of running it. */
+function offerAutoEdit(msg) {
+  showLTab('captions');
+  const btn = document.querySelector('.tool-tabs [data-act="auto"]');
+  if (btn) { btn.classList.add('pulse'); setTimeout(() => btn.classList.remove('pulse'), 6000); }
+  toast(msg || 'Captions ready. Nothing was auto-edited. Press ✨ Auto edit for cuts, a hook and a viral style — or edit by hand. (Turn on “Auto-run” on the home screen to skip this.)', 8000);
+}
 /** One click: cut pauses, drop umm/uh, give plain captions a viral style and add a hook title. */
 function autoEdit() {
   if (!S.file || S.image) return toast('Open a video first.');
@@ -1784,11 +1791,14 @@ async function runGeneration({ lang, mode, quality }) {
     }
     if (S.wantClips && S.segments.length) { S.wantClips = false; showLTab('clips'); findAndShowClips(); }
     // Editing mode chosen on the dashboard: apply it once the captions are ready.
+    // Auto-run is OFF by default — captions come first and the edit runs only when the
+    // user presses a button. Turn on "Auto-run the edit after upload" to have it run on its own.
     if (S.editMode && S.segments.length) {
       const m = S.editMode; S.editMode = null;
-      if (m === 'auto' || m === 'talkinghead') autoEdit();
+      const auto = S.autoRun;
+      if (m === 'auto' || m === 'talkinghead') { if (auto) autoEdit(); else offerAutoEdit(); }
       else if (m === 'guided') { showLTab('tpl'); toast('Captions ready. Pick a trending style, then fine-tune.', 4000); }
-      else if (m === 'silence') removeSilences();
+      else if (m === 'silence') { if (auto) removeSilences(); else offerAutoEdit('Captions ready. Press 🔇 Cut silences to remove the silent parts.'); }
       else if (m === 'captions') { const t = TEMPLATES.find(x => x.id === 'crazy'); if (t) applyCaptionTpl(t); showLTab('captions'); toast('Captions added in a viral style. Change the style any time.', 4000); }
     }
   } catch (err) {
@@ -3379,11 +3389,14 @@ document.querySelectorAll('#modeGrid [data-mode]').forEach(el => el.addEventList
   const m = el.dataset.mode;
   if (m === 'shorts') { e.preventDefault(); S.wantClips = true; $('lsOut').hidden = true; $('lsDlg').showModal ? $('lsDlg').showModal() : $('startFile').click(); return; }
   S.editMode = m;
-  toast(m === 'auto' ? 'Auto Mode: after upload, captions + a full auto edit run on their own.'
-    : m === 'talkinghead' ? 'Talking Head Mode: captions, then pauses cut and a hook added automatically.'
+  const runs = S.autoRun ? 'run on their own after upload' : 'run when you press ✨ Auto edit (captions come first)';
+  toast(m === 'auto' ? `Auto Mode: captions, then cuts, a hook and a viral style — they ${runs}.`
+    : m === 'talkinghead' ? `Talking Head Mode: captions, then pauses cut and a hook — they ${runs}.`
     : m === 'guided' ? 'Guided Mode: make captions, then pick a trending style and tweak.'
     : 'Pro Mode: the full editor with the timeline.', 4500);
 }));
+// Auto-run the edit after upload — off by default, so nothing edits itself until the user asks.
+if ($('autoRun')) { S.autoRun = false; $('autoRun').checked = false; $('autoRun').onchange = e => { S.autoRun = e.target.checked; toast(S.autoRun ? 'Auto-run on: the edit will run on its own after upload.' : 'Auto-run off: you get captions first, then press ✨ Auto edit yourself.', 3500); }; }
 
 // AI Co-Editor: each chip picks an intent, then the normal upload runs and the intent is applied
 // once captions are ready (same mechanism as the editing modes). All map to real features.
@@ -3393,9 +3406,9 @@ function startWithIntent(intent, note) {
   if (note) toast(note, 4500);
 }
 const AICO = {
-  viral: ['auto', 'Upload your video — captions + a full viral auto edit (cuts, hook, highlights) run on their own.'],
-  style: ['auto', 'Upload your video — the AI picks a viral style and auto-edits.'],
-  talkinghead: ['talkinghead', 'Upload your talking-head video — captions, pauses cut and a hook added automatically.'],
+  viral: ['auto', 'Upload your video — you get captions, then press ✨ Auto edit for cuts, a hook and highlights (or turn on Auto-run).'],
+  style: ['auto', 'Upload your video — captions first, then ✨ Auto edit picks a viral style and cuts.'],
+  talkinghead: ['talkinghead', 'Upload your talking-head video — captions first, then ✨ Auto edit cuts pauses and adds a hook.'],
   captions: ['captions', 'Upload your video — word-by-word captions in a trending style.'],
   silence: ['silence', 'Upload your video — the quiet pauses are cut automatically.'],
   shorts: ['shorts', 'Upload a long video (or paste a YouTube link) — it becomes 9:16 Shorts with hooks.'],
