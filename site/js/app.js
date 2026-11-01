@@ -1782,6 +1782,8 @@ async function runGeneration({ lang, mode, quality }) {
       const m = S.editMode; S.editMode = null;
       if (m === 'auto' || m === 'talkinghead') autoEdit();
       else if (m === 'guided') { showLTab('tpl'); toast('Captions ready. Pick a trending style, then fine-tune.', 4000); }
+      else if (m === 'silence') removeSilences();
+      else if (m === 'captions') { const t = TEMPLATES.find(x => x.id === 'crazy'); if (t) applyCaptionTpl(t); showLTab('captions'); toast('Captions added in a viral style. Change the style any time.', 4000); }
     }
   } catch (err) {
     if (err.message === 'needs-tap') {
@@ -3351,6 +3353,28 @@ document.querySelectorAll('#modeGrid [data-mode]').forEach(el => el.addEventList
     : m === 'guided' ? 'Guided Mode: make captions, then pick a trending style and tweak.'
     : 'Pro Mode: the full editor with the timeline.', 4500);
 }));
+
+// AI Co-Editor: each chip picks an intent, then the normal upload runs and the intent is applied
+// once captions are ready (same mechanism as the editing modes). All map to real features.
+function startWithIntent(intent, note) {
+  if (intent === 'shorts') { S.wantClips = true; $('lsOut').hidden = true; $('lsDlg').showModal ? $('lsDlg').showModal() : $('startFile').click(); }
+  else { S.editMode = intent; $('startFile').click(); }
+  if (note) toast(note, 4500);
+}
+const AICO = {
+  viral: ['auto', 'Upload your video — captions + a full viral auto edit (cuts, hook, highlights) run on their own.'],
+  style: ['auto', 'Upload your video — the AI picks a viral style and auto-edits.'],
+  talkinghead: ['talkinghead', 'Upload your talking-head video — captions, pauses cut and a hook added automatically.'],
+  captions: ['captions', 'Upload your video — word-by-word captions in a trending style.'],
+  silence: ['silence', 'Upload your video — the quiet pauses are cut automatically.'],
+  shorts: ['shorts', 'Upload a long video (or paste a YouTube link) — it becomes 9:16 Shorts with hooks.'],
+};
+if ($('aicoChips')) {
+  $('aicoChips').addEventListener('click', e => { const b = e.target.closest('button[data-ai]'); if (!b) return; const [intent, note] = AICO[b.dataset.ai] || []; if (intent) startWithIntent(intent, note); });
+  const send = () => { const v = ($('aicoText').value || '').trim(); startWithIntent('auto', v ? 'Got it — upload your video and the AI will auto-plan the edit from your captions.' : 'Upload your video — the AI will auto-plan a viral edit.'); };
+  $('aicoSend').onclick = send;
+  $('aicoText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+}
 $('photoFile').onchange = e => { startFile(e.target.files[0]); e.target.value = ''; };
 document.querySelectorAll('.js-live').forEach(a => { a.onclick = e => { e.preventDefault(); openEditor(); setMode('live'); }; });
 document.querySelector('[data-go="top"]').onclick = e => { e.preventDefault(); scrollTo({ top: 0, behavior: 'smooth' }); };
