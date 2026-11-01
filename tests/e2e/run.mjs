@@ -897,13 +897,9 @@ await step('home dashboard: a project is saved on the device and reopens with it
   const m = await ctx.newPage();
   const errs = []; m.on('pageerror', e => errs.push(e.message));
   await m.goto(`${BASE}/app.html`);
-  assert.equal(await m.isVisible('#startDrop'), true, 'Create project banner');
-  // The intro's CLICK HERE warps straight to Create project.
-  assert.equal(await m.isVisible('#introGo'), true, 'CLICK HERE on the home page');
-  await m.click('#introGo');
-  await m.waitForTimeout(1600);
-  const inView = await m.evaluate(() => { const r = document.getElementById('startDrop').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
-  assert.equal(inView, true, 'CLICK HERE brings Create project into view');
+  // The URL opens straight on the dashboard — no intro splash to click through.
+  assert.equal(await m.isVisible('#startDrop'), true, 'Create project banner shows directly');
+  assert.equal(await m.evaluate(() => document.getElementById('intro').hidden), true, 'no CLICK HERE intro gate');
   assert.equal(await m.locator('.proj').count(), 0);
   await m.click('#startSkip');
   await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
