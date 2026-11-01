@@ -15,6 +15,7 @@ import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
 import { TEXT_FONTS, newLayer, drawLayer, layersAt, hitLayer, layout } from './text-layers.js';
 import { findClips, cropRect, ASPECTS, aspectSize } from './clips.js';
 import { TEXT_ANIMS, animState, breakApart, kfSample, upsertKf } from './text-fx.js';
+import { onsetEnvelope, detectBeats, groupBeats } from './beats.js';
 import { youtubeId, titleCheck } from './grow.js';
 import { seriesOrder, partOf, partLabel, seriesCaptions } from './series.js';
 import { SIZES, OVERLAYS, THUMBS, photoRect, drawOverlay } from './thumbs.js';
@@ -113,7 +114,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps, beats: S.o.beats, beatGroup: S.o.beatGroup });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -574,6 +575,8 @@ var timeline = mountTimeline($('timeline'), {
   addText: () => addText(),
   selectWord: (si, wi) => { S.wordSel = si == null ? null : [si, wi]; renderWordUI(); if (si != null) showRTab('style'); },
   clip: () => S.o.clip || null,
+  beats: () => S.o.beats || null,
+  beatGroup: () => S.o.beatGroup || 4,
   makeCaptions: () => { showLTab('captions'); startCaptions(); timeline.render(); },
   captionsBusy: () => genRunning,
   media: () => (S.file && !S.image && S.fileURL ? { url: S.fileURL, name: S.file.name.replace(/\.[^.]+$/, ''), dur: video.duration || 0 } : null),
@@ -2041,7 +2044,7 @@ function loadMusic(file) {
   const url = URL.createObjectURL(file);
   musicEl = new Audio(); musicEl.src = url; musicEl.preload = 'auto'; musicEl.crossOrigin = 'anonymous';
   musicEl.onloadedmetadata = () => { S.o.music = { ...(S.o.music || {}), dur: musicEl.duration || 0 }; renderMusicUI(); timeline.render(); };
-  S.o.music = { name: file.name, url, start: 0, volume: 80, dur: 0 };
+  S.o.music = { name: file.name, url, start: 0, volume: 80, dur: 0 }; S.musicFile = file;
   ensureMusicGraph();
   commit(); renderMusicUI(); timeline.render();
   toast('Music added. It plays with the video and is included when you export.', 5000);
@@ -2053,7 +2056,7 @@ function removeMusic(quiet) {
   // a fresh element + node are made on the next import.
   if (musicNode) { try { musicNode.disconnect(); } catch { /* ignore */ } musicNode = null; }
   musicEl = null;
-  if (!quiet) { S.o.music = null; commit(); renderMusicUI(); timeline.render(); toast('Music removed.'); }
+  if (!quiet) { S.o.music = null; S.o.beats = null; S.musicFile = null; commit(); renderMusicUI(); timeline.render(); toast('Music removed.'); }
 }
 function renderMusicUI() {
   const m = S.o.music, card = $('musicCard');
@@ -2064,6 +2067,28 @@ function renderMusicUI() {
   $('musicName').textContent = m.name || 'music';
   $('musicVol').value = m.volume ?? 80; $('musicVolVal').textContent = `${m.volume ?? 80}%`;
   $('musicAt').textContent = `Starts at ${fmt(m.start || 0)}${m.dur ? ` · ${fmt(m.dur)} long` : ''}`;
+  const nb = S.o.beats && S.o.beats.length;
+  if ($('beatsClear')) $('beatsClear').hidden = !nb;
+  if ($('beatsInfo')) $('beatsInfo').textContent = nb ? `${S.o.beats.length} beats · ~${S.o.bpm || '?'} BPM` : '';
+  if ($('beatsGroup') && S.o.beatGroup) $('beatsGroup').value = S.o.beatGroup;
+}
+// Analyse the music for its beat and lay a beat grid on the timeline (grouped into 4 / 8 / 16 counts).
+async function detectBeatsFromMusic() {
+  if (!S.o.music || !S.musicFile) return toast('Import a music file first, then detect its beats.');
+  ensureAudioGraph();
+  toast('Analysing the beat…', 2500);
+  try {
+    const buf = await audioCtx.decodeAudioData(await S.musicFile.arrayBuffer());
+    const { env, step } = onsetEnvelope(buf.getChannelData(0), buf.sampleRate, 512);
+    const { beats, bpm } = detectBeats(env, step);
+    if (!beats.length) return toast('Couldn’t find a clear, steady beat in this track.', 5000);
+    const start = S.o.music.start || 0;
+    S.o.beats = beats.map(t => +(t + start).toFixed(3)); // on the video's timeline
+    S.o.beatGroup = +($('beatsGroup').value) || 4;
+    S.o.bpm = bpm;
+    commit(); renderMusicUI(); timeline.render();
+    toast(`Found the beat: ~${bpm} BPM, ${beats.length} beats. The grid is on the timeline — every ${S.o.beatGroup} beats is a stronger line to cut on.`, 7000);
+  } catch { toast('Couldn’t read this audio to find beats.', 5000); }
 }
 if ($('musicIn')) {
   $('musicIn').onchange = e => { const f = e.target.files && e.target.files[0]; if (f) loadMusic(f); e.target.value = ''; };
@@ -2072,6 +2097,9 @@ if ($('musicIn')) {
   $('musicVol').onchange = () => { if (S.o.music) commit(); };
   $('musicHere').onclick = () => { if (S.o.music) { S.o.music.start = +(video.currentTime || 0).toFixed(2); commit(); renderMusicUI(); timeline.render(); syncMusic(); } };
   $('musicStart0').onclick = () => { if (S.o.music) { S.o.music.start = 0; commit(); renderMusicUI(); timeline.render(); syncMusic(); } };
+  $('beatsBtn').onclick = detectBeatsFromMusic;
+  $('beatsGroup').onchange = () => { if (S.o.beats) { S.o.beatGroup = +$('beatsGroup').value || 4; commit(); timeline.render(); } };
+  $('beatsClear').onclick = () => { S.o.beats = null; commit(); renderMusicUI(); timeline.render(); toast('Beat grid cleared.'); };
 }
 
 let exportJob = null;

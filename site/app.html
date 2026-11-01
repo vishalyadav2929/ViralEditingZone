@@ -371,6 +371,18 @@
           <div class="music-row"><b id="musicName">track.mp3</b><button class="btn btn-sm" id="musicDel" type="button">🗑 Remove</button></div>
           <div class="field"><label for="musicVol">Volume <b id="musicVolVal">80%</b></label><input type="range" id="musicVol" min="0" max="100" value="80"></div>
           <div class="row"><button class="btn btn-sm" id="musicHere" type="button">Start at playhead</button><button class="btn btn-sm" id="musicStart0" type="button">Start at 0:00</button><span class="music-at" id="musicAt"></span></div>
+          <div class="row beats-row">
+            <button class="btn btn-sm" id="beatsBtn" type="button">🥁 Detect beats</button>
+            <label for="beatsGroup" class="inline">Count</label>
+            <select id="beatsGroup" aria-label="Beat count grouping">
+              <option value="1">Every beat</option>
+              <option value="4" selected>4 count</option>
+              <option value="8">8 count</option>
+              <option value="16">16 count</option>
+            </select>
+            <button class="btn btn-sm" id="beatsClear" type="button" hidden>Clear</button>
+            <span class="music-at" id="beatsInfo"></span>
+          </div>
         </div>
         <p class="hint">Add your own music or voiceover — it plays with the video and is baked into the export. It plays on top of the original sound (not in cut exports yet), and your file stays on your device.</p>
       </div>

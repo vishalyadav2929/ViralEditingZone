@@ -1233,3 +1233,12 @@ body.studio {
 .aico-box button { flex: none; width: 46px; border: 0; border-radius: 12px; cursor: pointer; font-size: 16px; color: #fff; background: linear-gradient(135deg, #7c3aed, #c026d3); }
 .aico-box button:hover { filter: brightness(1.08); }
 .aico-note { display: block; margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+/* Beat grid on the timeline (from Detect beats) */
+.tl-beats { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 2; }
+.tl-beats[hidden] { display: none; }
+.tl-beats i { position: absolute; top: 14px; bottom: 2px; width: 1px; background: rgba(255,255,255,.16); }
+.tl-beats i.strong { width: 2px; background: var(--accent); opacity: .85; }
+.beats-row { gap: 8px; align-items: center; flex-wrap: wrap; }
+.beats-row select { padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.beats-row .inline { font-size: 13px; color: var(--muted); }
