@@ -112,6 +112,23 @@
         <label class="mode-card" for="startFile" data-mode="talkinghead"><i aria-hidden="true">🧑‍💻</i><b>Talking Head Mode</b><span>Best for face-to-camera, podcasts and explainers: captions, zoom-worthy hooks, pauses cut.</span></label>
         <a class="mode-card" href="#" id="modeShorts" data-mode="shorts"><i aria-hidden="true">🎞</i><b>Short &amp; Reels Mode</b><span>Turn a long vlog or podcast into 9:16 Shorts with hooks, captions and series parts.</span></a>
       </div>
+      <section class="aico" id="aico">
+        <div class="aico-head"><b>🤖 AI Co-Editor</b><span>Pick what you want to make — it sets up the whole edit for you after you upload.</span></div>
+        <div class="aico-chips" id="aicoChips">
+          <button type="button" data-ai="viral"><i aria-hidden="true">🔥</i> Make this a viral Reel</button>
+          <button type="button" data-ai="talkinghead"><i aria-hidden="true">🧑‍💻</i> Edit my talking-head video</button>
+          <button type="button" data-ai="captions"><i aria-hidden="true">💬</i> Add captions (trending style)</button>
+          <button type="button" data-ai="shorts"><i aria-hidden="true">🎞</i> Convert to Shorts (under 60s)</button>
+          <button type="button" data-ai="silence"><i aria-hidden="true">🔇</i> Remove pauses &amp; silences</button>
+          <button type="button" data-ai="style"><i aria-hidden="true">✨</i> Auto-pick the best style</button>
+        </div>
+        <div class="aico-box">
+          <input id="aicoText" type="text" placeholder="Describe your edit… (AI reads your captions and auto-plans it)" aria-label="Describe your edit">
+          <button id="aicoSend" type="button" aria-label="Start this edit">➤</button>
+        </div>
+        <small class="aico-note">The AI edit reads your captions (never the video) and plans cuts, a hook, highlighted words and Shorts — all editable, one Ctrl+Z undoes. Following detailed written instructions is coming soon.</small>
+      </section>
+      <h2 class="dash-h">Or start from a tool</h2>
       <div class="dash-cards">
         <a href="#" class="dash-card c5" id="cardClips"><b>Long video → Shorts</b><span>Upload a vlog or podcast, or paste its YouTube link: 9:16 clips with hooks, captions and series parts</span><i aria-hidden="true">🎞</i></a>
         <label class="dash-card c1" for="startFile"><b>Auto captions</b><span>Hindi, Hinglish, English + 30 languages, word-by-word</span><i aria-hidden="true">💬</i></label>
