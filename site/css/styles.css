@@ -209,7 +209,16 @@ footer { padding: 36px 0; color: var(--muted); font-size: 14px; text-align: cent
 .export-card .btn { justify-self: center; }
 body.exporting .panel, body.exporting .mode-switch, body.exporting #fileControls { pointer-events: none; opacity: .55; }
 
-.ptabs { display: flex; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid var(--line); }
+.ptabs { display: flex; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
+/* Style panel is contextual: closed until a caption / word / text is clicked. Collapsed → the
+   heavy controls are hidden and only the slim tab strip + a hint remain; any tab click or
+   selection opens it (see openProps in app.js). */
+.panel.props.collapsed .panel-b { display: none; }
+.props-hint { display: none; margin: 10px 10px 12px; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.panel.props.collapsed .props-hint { display: block; }
+.props-x { margin-left: auto; border: 0; background: none; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 8px; border-radius: 8px; line-height: 1; }
+.props-x:hover { background: var(--line); color: var(--text); }
+.panel.props.collapsed .props-x { display: none; }
 .ptab { flex: 1; border: 0; background: none; padding: 10px; font-weight: 700; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; }
 .ptab.on { color: var(--text); border-bottom-color: var(--accent); }
 .gen { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg-2); }
@@ -582,6 +591,10 @@ body.no-scroll .nav { visibility: hidden; }
   .app.no-tl { grid-template-rows: minmax(0, 1fr) 0 0; }
   .app.no-tl #splitT { display: none; }
   .stage { gap: 8px; }
+  /* Collapsed style panel: shrink its column to the slim tab strip so the preview gets the room;
+     the resize handle is pointless while it's collapsed. */
+  .app.props-collapsed { --rw: 232px; }
+  .app.props-collapsed #splitR { visibility: hidden; }
 }
 .panel.tools .ptabs { flex: none; }
 .lay-wrap { position: relative; }

@@ -458,7 +458,12 @@ function showLTab(which) {
 }
 LTABS.forEach(([tab, , id]) => { $(tab).onclick = () => showLTab(id); });
 const RTABS = [['tabStyle', 'paneStyle', 'style'], ['tabTxt', 'paneTxtProps', 'text'], ['tabInfo', 'paneInfo', 'info']];
+// The style panel stays closed until you click a caption / word / text (or a tab) — it is not a
+// permanent wall of controls. openProps/closeProps toggle it; any selection calls openProps.
+function openProps() { document.querySelector('.panel.props')?.classList.remove('collapsed'); $('editor')?.classList.remove('props-collapsed'); }
+function closeProps() { document.querySelector('.panel.props')?.classList.add('collapsed'); $('editor')?.classList.add('props-collapsed'); }
 function showRTab(which) {
+  openProps();
   for (const [tab, pane, id] of RTABS) {
     const on = which === id;
     $(tab).classList.toggle('on', on); $(tab).setAttribute('aria-selected', on); $(pane).hidden = !on;
@@ -466,6 +471,7 @@ function showRTab(which) {
   if (which === 'info') renderInfo();
 }
 RTABS.forEach(([tab, , id]) => { $(tab).onclick = () => showRTab(id); });
+if ($('propsClose')) $('propsClose').onclick = () => closeProps();
 function showTab(which) { if (which === 'style') showRTab('style'); else showLTab(which); }
 
 // ---------- colour grading ----------
@@ -1234,6 +1240,7 @@ function renderSegs() {
 }
 function markSel() {
   [...$('segs').children].forEach((r, k) => r.classList.toggle('sel', k === S.selected));
+  if (S.selected >= 0) { openProps(); showRTab('style'); }   // clicking a caption opens its style panel
 }
 function highlightSeg(t) {
   const idx = C.indexAt(S.segments, t);

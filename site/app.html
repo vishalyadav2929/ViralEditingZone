@@ -211,7 +211,7 @@
     </div>
   </section>
 
-  <main class="app" id="editor" hidden>
+  <main class="app props-collapsed" id="editor" hidden>
     <!-- Templates -->
 
     <aside class="panel tools" aria-label="Tools">
@@ -475,12 +475,14 @@
     <div class="split split-h" id="splitT" role="separator" aria-orientation="horizontal" aria-label="Resize timeline"></div>
     <div class="tl-dock" id="tlDock"></div>
 
-    <aside class="panel props" aria-label="Details">
+    <aside class="panel props collapsed" aria-label="Details">
       <div class="ptabs" role="tablist" aria-label="Details">
         <button class="ptab on" id="tabStyle" role="tab" aria-selected="true" aria-controls="paneStyle">Caption style</button>
         <button class="ptab" id="tabTxt" role="tab" aria-selected="false" aria-controls="paneTxtProps">Text</button>
         <button class="ptab" id="tabInfo" role="tab" aria-selected="false" aria-controls="paneInfo">Details</button>
+        <button class="props-x" id="propsClose" type="button" aria-label="Close style panel" title="Close">✕</button>
       </div>
+      <p class="props-hint" id="propsHint">👆 Click a caption (or a text) to edit its style here.</p>
       <div class="panel-b" id="paneStyle" role="tabpanel">
         <p class="hint">Changes apply to the preview and the exported video. <button class="link" id="resetStyle">Reset to template</button></p>
         <div class="group word-group" id="wordGroup" hidden>
