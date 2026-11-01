@@ -1636,7 +1636,9 @@ await step('animation off means nothing moves in any style; empty captions track
   await m.waitForFunction(() => window.__vcz.S.segments.length > 0);
   assert.equal(await m.locator('.tc-add').count(), 0);
   assert.ok(await m.locator('.tc').count() > 0, 'captions on the timeline');
-  await m.click('#tabStyle'); await m.click('#animOff');
+  await m.click('#tabCaptions');
+  await m.evaluate(() => { const d = document.getElementById('advStyle'); if (d) d.open = true; });
+  await m.click('#animOff');
   const moving = await m.evaluate(async () => {
     const { drawCaption, buildChunks, spreadWords } = await import('./js/renderer.js');
     const { TEMPLATES } = await import('./js/templates.js');

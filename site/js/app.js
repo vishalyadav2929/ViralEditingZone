@@ -3010,6 +3010,9 @@ const STICKERS = ['🔥', '😱', '🤯', '✅', '❌', '➡️', '👉', '💰'
 function addElement(o) {
   const L = newLayer({ start: 0, end: S.image ? 1 : 3, y: 0.3 + (texts().length % 5) * 0.1, ...o });
   S.o.texts = [...texts(), L]; commit(); selectText(L.id);
+  // In the design/thumbnail editor the stickers + elements live in the Thumbnail tab; selecting the
+  // new text switched to the Text tab, so come back so the palette stays in reach.
+  if (S.image) showLTab('thumb');
 }
 {
   const box = $('thumbElements');
