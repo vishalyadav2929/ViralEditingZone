@@ -197,7 +197,8 @@ await step('template change updates the real preview', async () => {
 });
 
 await step('style controls change the template used for preview and export', async () => {
-  await page.click('#tabStyle');
+  await page.click('#tabCaptions');
+  await page.evaluate(() => { const d = document.getElementById('advStyle'); if (d) d.open = true; });
   await page.locator('#strokeW').fill('20');
   await page.locator('#strokeW').dispatchEvent('change');
   await page.locator('#bgOp').fill('70');
@@ -687,7 +688,7 @@ await step('colour grading: looks change the preview, .cube import, undo, and th
   await ctx.close();
 });
 
-await step('style panel is contextual: closed by default, opens on caption click, ✕ closes it', async () => {
+await step('caption style lives under the Captions tab — no separate right panel', async () => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
   const m = await ctx.newPage();
   const errs = []; m.on('pageerror', e => errs.push(e.message));
@@ -697,17 +698,18 @@ await step('style panel is contextual: closed by default, opens on caption click
   await m.waitForSelector('#timeline:not([hidden])');
   await m.setInputFiles('#srtIn', join(FIX, 'sample.srt'));
   await m.waitForSelector('.seg textarea');
-  // Closed by default: the heavy style controls are not shown, only a hint.
-  assert.equal(await m.isVisible('#fontSel'), false, 'style controls hidden until a caption is clicked');
-  assert.equal(await m.isVisible('#propsHint'), true, 'hint shown while collapsed');
-  // Click a caption → the style panel opens.
-  await m.locator('.seg textarea').first().click();
+  // The old right properties panel is gone; its controls now live under the Captions tab.
+  assert.equal(await m.locator('.panel.props').count(), 0, 'no separate right properties panel');
+  await m.click('#tabCaptions');
+  assert.equal(await m.isVisible('#capStyle'), true, 'the caption style card is under Captions');
+  // The fine-tune fold holds the detailed controls (font, outline, position…) in the same tab.
+  assert.equal(await m.locator('#paneCaptions #advStyle #fontSel').count(), 1, 'detailed controls folded under Captions');
+  await m.evaluate(() => { document.getElementById('advStyle').open = true; });
   await m.waitForSelector('#fontSel:visible');
-  assert.equal(await m.isVisible('#fontSel'), true, 'clicking a caption opens its style');
-  assert.equal(await m.isVisible('#propsHint'), false, 'hint gone once open');
-  // ✕ closes it again.
-  await m.click('#propsClose');
-  assert.equal(await m.isVisible('#fontSel'), false, '✕ collapses the panel');
+  assert.equal(await m.isVisible('#fontSel'), true, 'opening the fine-tune fold shows the detailed controls');
+  // Text overlay props and project details are folded into the left tabs too.
+  assert.equal(await m.locator('#paneText #paneTxtProps').count(), 1, 'text overlay props under the Text tab');
+  assert.equal(await m.locator('#paneCaptions #projDetails #paneInfo').count(), 1, 'project details folded under Captions');
   assert.deepEqual(errs, []);
   await ctx.close();
 });
@@ -853,6 +855,7 @@ await step('manual text: typed by hand, shown all at once, drag to move, on the 
   await pickTpl(m, 'Crazy');
   assert.equal(await m.evaluate(() => window.__vcz.S.o.texts[0].tpl), 'crazy', 'template applied to the selected text');
   assert.equal(await m.evaluate(() => window.__vcz.S.tplId), capTpl, 'captions keep their template');
+  await m.click('#ltabText');   // text props live under the Text tab; picking a style opened the Styles tab
   await m.click('#txtTplClear');
   assert.equal(await m.evaluate(() => window.__vcz.S.o.texts[0].tpl), null, 'template removed from text');
   // Escape deselects; then a template change styles the captions and keeps the text.
@@ -940,10 +943,11 @@ await step('layout: preview left/middle/right and panel sizes are saved across r
   await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
   await m.waitForSelector('#timeline:not([hidden])');
   const x = async sel => (await m.locator(sel).boundingBox()).x;
-  // Default: tools | details | preview on the right, full height; timeline under the two panels.
-  assert.ok(await x('.panel.tools') < await x('.panel.props') && await x('.panel.props') < await x('.stage'), 'preview on the right by default');
+  // Two-column editor (properties folded into the left tabs): tools | preview, timeline underneath.
+  assert.equal(await m.locator('.panel.props').count(), 0, 'no separate right properties panel');
+  assert.ok(await x('.panel.tools') < await x('.stage'), 'tools on the left, preview on the right');
   let tl = await m.locator('#timeline').boundingBox(), st = await m.locator('.stage').boundingBox();
-  assert.ok(st.y + st.height >= tl.y + tl.height - 2 && tl.x + tl.width <= st.x + 1, 'preview runs full height beside the timeline');
+  assert.ok(tl.y >= st.y + st.height - 2 && tl.width > 1200, 'timeline runs full width under the preview');
   // Middle layout: timeline across the whole width under the preview.
   await m.click('#layBtn'); await m.click('[data-lay="center"]');
   tl = await m.locator('#timeline').boundingBox(); st = await m.locator('.stage').boundingBox();
@@ -1387,7 +1391,7 @@ await step('caption animation: pick another entry, or turn all animation off (ca
   assert.equal(await ink(), 0, 'Spark pops in: nothing at its first frame');
   await m.selectOption('#capAnim', 'slide-right');
   assert.equal(await m.evaluate(() => window.__vcz.tpl().anim), 'slide-right');
-  await m.click('#tabStyle');
+  await m.evaluate(() => { const d = document.getElementById('advStyle'); if (d) d.open = true; });
   await m.click('#animOff');
   assert.deepEqual(await m.evaluate(() => { const t = window.__vcz.tpl(); return [t.anim, t.reveal, t.hi]; }), ['none', 'none', 'none']);
   assert.ok(await ink() > 200, 'no animation: the caption is fully there at once');
@@ -1678,8 +1682,8 @@ await step('paused on a caption’s first frame: the caption shows fully and sty
   const white = () => m.evaluate(() => { const c = document.getElementById('stage'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240) n++; return n; });
   const a = await white();
   assert.ok(a > 500, `caption visible while paused at its start: ${a}`);
-  await m.click('#tabStyle');
-  await m.evaluate(() => { const el = document.getElementById('size'); el.value = 170; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
+  await m.click('#tabCaptions');
+  await m.evaluate(() => { const d = document.getElementById('advStyle'); if (d) d.open = true; const el = document.getElementById('size'); el.value = 170; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
   await m.waitForTimeout(300);
   const b = await white();
   assert.ok(b > a * 1.5, `bigger size shows at once: ${a} → ${b}`);
