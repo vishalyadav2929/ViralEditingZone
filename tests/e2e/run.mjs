@@ -687,7 +687,7 @@ await step('colour grading: looks change the preview, .cube import, undo, and th
   await ctx.close();
 });
 
-await step('timeline: words, captions and waveform; click jumps, double-click edits, Delete removes, Top/Bottom moves captions', async () => {
+await step('timeline: words, captions and waveform; click jumps, double-click edits, Delete removes, vertical-position slider moves captions', async () => {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, serviceWorkers: 'block' });
   const m = await ctx.newPage();
   const errs = []; m.on('pageerror', e => errs.push(e.message));
@@ -718,12 +718,13 @@ await step('timeline: words, captions and waveform; click jumps, double-click ed
   assert.equal(await m.locator('.tw').count(), words - 1);
   await m.click('#undoBtn');
   assert.equal(await m.locator('.tw').count(), words, 'undo brings the word back');
-  // Position buttons.
-  await m.click('.tl-pos button:has-text("Top")');
-  assert.equal(await m.evaluate(() => window.__vcz.S.o.pos), 0.2);
-  assert.match(await m.getAttribute('.tl-pos button:has-text("Top")', 'class'), /on/);
-  await m.click('.tl-pos button:has-text("Bottom")');
-  assert.equal(await m.evaluate(() => window.__vcz.S.o.pos), 0.78);
+  // Caption vertical position: the "Vertical position" slider in Styles → Details (there is no
+  // permanent Top/Middle/Bottom toggle in the timeline toolbar any more).
+  assert.equal(await m.locator('.tl-pos').count(), 0, 'no caption-position toggle parked in the timeline bar');
+  await m.evaluate(() => { const el = document.getElementById('pos'); el.value = 20; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  assert.equal(await m.evaluate(() => +window.__vcz.S.o.pos.toFixed(2)), 0.2);
+  await m.evaluate(() => { const el = document.getElementById('pos'); el.value = 78; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  assert.equal(await m.evaluate(() => +window.__vcz.S.o.pos.toFixed(2)), 0.78);
   // Click empty timeline: jump.
   const box = await m.locator('.tl-inner').boundingBox();
   await m.mouse.click(box.x + 20, box.y + 10); // on the ruler (the video track starts with its trim handle)

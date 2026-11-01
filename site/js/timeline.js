@@ -13,9 +13,6 @@ export function mountTimeline(root, api) {
     <div class="tl-bar">
       <span class="tl-title">Timeline</span>
       <span class="tl-acts"><button type="button" data-act="claude" class="tl-ai tl-claude" hidden title="AI reads what is said and cuts bad takes, repeats and rambling, adds a hook, highlights key words and picks Shorts">🤖 AI edit</button><button type="button" data-act="auto" class="tl-ai" title="Cut pauses, remove umm/uh, style the captions and add a hook">✨ Auto edit</button><button type="button" data-act="silence" title="Cut the silent parts out of the video">🔇 Cut silences</button><button type="button" data-act="split" title="Split the caption at the playhead">✂ Split</button><button type="button" data-act="del" title="Delete the selected word, caption, text or sound">🗑 Delete</button></span>
-      <div class="tl-pos" role="group" aria-label="Caption position">
-        <button type="button" data-pos="0.2">Top</button><button type="button" data-pos="0.5">Middle</button><button type="button" data-pos="0.78">Bottom</button>
-      </div>
       <button type="button" class="tl-addtxt">+ Text</button>
       <button type="button" class="tl-add" aria-haspopup="true">+ Sound</button>
       <span class="tl-zoom"><button type="button" data-z="-1" aria-label="Zoom out">−</button><button type="button" data-z="1" aria-label="Zoom in">+</button></span>
@@ -87,10 +84,14 @@ export function mountTimeline(root, api) {
       else api.deleteSelected();
     }
   };
-  root.querySelector('.tl-pos').onclick = e => { const p = e.target.dataset.pos; if (p) { api.setPos(+p); syncPos(); } };
+  // Caption vertical position lives in Styles → Details (the "Vertical position" slider) and by
+  // dragging the caption in the preview — it is not a permanent toggle in the timeline toolbar.
+  const posBar = root.querySelector('.tl-pos');
+  if (posBar) posBar.onclick = e => { const p = e.target.dataset.pos; if (p) { api.setPos(+p); syncPos(); } };
   function syncPos() {
+    if (!posBar) return;
     const p = api.pos();
-    root.querySelectorAll('.tl-pos button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.pos - p) < 0.12));
+    posBar.querySelectorAll('button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.pos - p) < 0.12));
   }
 
   // Per-clip context toolbar: tap the video track to select the clip; a CapCut-style

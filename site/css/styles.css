@@ -789,7 +789,7 @@ body.studio .start-go:disabled { background: #22222c; color: #6b6b7b; }
 .tl-acts button + button { border-left: 1px solid var(--line); }
 .tl-acts button:hover { background: #2a2a38; }
 body.studio .tl-title { margin-right: 6px; }
-body.studio .tl-bar .tl-pos { margin-left: auto; }
+body.studio .tl-bar .tl-addtxt { margin-left: auto; }
 @media (min-width: 1101px) {
   body.studio .app { height: calc(100dvh - 52px); padding: 8px; }
   body.studio .panel { border-radius: 12px; }
