@@ -158,6 +158,42 @@ export async function exportKeep({ file, width, height, keep, draw, canvas, bitr
   }
 }
 
+/**
+ * Captions only (no source video): every frame is drawn and encoded offline at a steady frame rate,
+ * not recorded in real time — so no dropped or doubled frames, and no dependence on the tab staying
+ * in front. alpha=true → VP9 (or VP8) WebM with a real transparent background (alpha is encoded as its
+ * own stream, the layout Premiere, DaVinci Resolve, After Effects and Chrome read); otherwise H.264 MP4
+ * for green screen. draw(t) paints the frame for time t (seconds from the start) onto `canvas`.
+ * @returns {Promise<Blob|'cancelled'|null>}  null when this browser can't encode it (caller falls back)
+ */
+export async function exportOverlay({ width, height, dur, fps = 30, draw, canvas, bitrate, job, onProgress, alpha = false }) {
+  if (typeof VideoEncoder !== 'function') return null;
+  const M = await load();
+  const want = alpha ? ['vp9', 'vp8'] : ['avc', ...(self.__vczFastCodecs || [])];
+  let codec = null;
+  for (const c of want) if (await M.canEncodeVideo(c, { width, height, bitrate })) { codec = c; break; }
+  if (!codec) return null;
+  const output = new M.Output({
+    format: alpha ? new M.WebMOutputFormat() : new M.Mp4OutputFormat({ fastStart: 'in-memory' }),
+    target: new M.BufferTarget(),
+  });
+  const vsrc = new M.CanvasSource(canvas, { codec, bitrate, keyFrameInterval: 1, ...(alpha ? { alpha: 'keep' } : {}) });
+  output.addVideoTrack(vsrc, { frameRate: fps });
+  await output.start();
+  job.cancel = () => { job.cancelled = true; };
+  const n = Math.max(1, Math.round(dur * fps));
+  for (let k = 0; k < n; k++) {
+    if (job.cancelled) { try { await output.cancel(); } catch { /* already stopped */ } return 'cancelled'; }
+    const t = k / fps;
+    draw(t);
+    await vsrc.add(t, 1 / fps);
+    if (k % 15 === 0 && onProgress) onProgress(k / n, t);
+  }
+  await output.finalize();
+  if (job.cancelled) return 'cancelled';
+  return new Blob([output.target.buffer], { type: alpha ? 'video/webm' : 'video/mp4' });
+}
+
 /** Audio chunks ({ buffer, timestamp }) → one AudioBuffer covering exactly start..end, with short fades. */
 function joinAudio(parts, start, end) {
   if (!parts.length) return null;

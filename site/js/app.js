@@ -7,7 +7,7 @@ import { mountIntro } from './intro.js';
 import * as C from './captions.js';
 import { extractAacAdts } from './mp4audio.js';
 import { exportWebCodecs } from './export-webcodecs.js';
-import { exportFast, exportKeep, videoInfo } from './export-fast.js';
+import { exportFast, exportKeep, exportOverlay, videoInfo } from './export-fast.js';
 import { mergeCuts, keepRanges, cutAt, keptLength, findSilences, wordGaps } from './cuts.js';
 import { Grader, LOOKS, buildLut, parseCube, DEFAULT_GRADE, isGraded } from './grade.js';
 import { mountTimeline, wavePeaks } from './timeline.js';
@@ -2190,14 +2190,16 @@ function openExportDialog() {
   const z = S.o.clip && aspectSize(S.o.clip.aspect);
   const hd = z ? sizes.findIndex(o => o.w === z.w && o.h === z.h) : sizes.findIndex(o => Math.max(o.w, o.h) === 1920);
   if (hd > 0) sel.value = hd;
-  const hasAlpha = !!alphaMime();
+  const hasAlpha = typeof VideoEncoder === 'function' || !!alphaMime();
   $('xKindAlpha').disabled = !hasAlpha;
   $('xAlphaNote').textContent = hasAlpha ? 'WebM with a real transparent background. Works in Premiere, DaVinci Resolve, After Effects and Final Cut (with a plug-in).'
     : 'Not available in this browser (Safari can’t record WebM). Use green screen instead, or open this site in Chrome.';
   if (!hasAlpha && $('xKindAlpha').checked) $('xKindVideo').checked = true;
   const long = Math.max(video.videoWidth, video.videoHeight);
-  $('xNote').textContent = `Takes about ${fmt(video.duration)} (it records in real time). Keep this tab open.` +
-    (long > 1920 ? ' Original 4K needs a fast computer; choose 1080p if the export stutters.' : '');
+  $('xNote').textContent = (typeof VideoEncoder === 'function'
+    ? 'Encoded frame by frame at full quality — usually faster than the video itself. With music or a speed change it records in real time instead. Keep this tab open.'
+    : `Takes about ${fmt(video.duration)} (it records in real time). Keep this tab open.`) +
+    (long > 1920 ? ' Original 4K is the sharpest but slower; 1080p is what Instagram and Shorts show.' : '');
   $('xDlg').showModal ? $('xDlg').showModal() : $('xDlg').setAttribute('open', '');
 }
 $('exportBtn').onclick = openExportDialog;
@@ -2226,10 +2228,12 @@ $('xGo').onclick = e => {
 
 async function exportVideo({ kind = 'video', size, batch } = {}) {
   if (S.exporting || !S.file) return;
-  if (!window.MediaRecorder || !xcanvasOpaque.captureStream) return toast('Export needs MediaRecorder, which this browser doesn’t support. Try Chrome, Edge, Firefox or Safari.', 6000);
+  const canWC = typeof VideoEncoder === 'function';
+  if (!canWC && (!window.MediaRecorder || !xcanvasOpaque.captureStream)) return toast('Export needs MediaRecorder, which this browser doesn’t support. Try Chrome, Edge, Firefox or Safari.', 6000);
   const overlay = kind !== 'video';
-  const mimeType = kind === 'alpha' ? alphaMime() : pickMime();
-  if (!mimeType) return toast('This browser can’t record video. Try Chrome, Edge, Firefox or Safari.', 6000);
+  const mimeType = !window.MediaRecorder ? '' : kind === 'alpha' ? alphaMime() : pickMime();
+  // Captions-only exports are encoded frame by frame with WebCodecs; the recorder is only a fallback.
+  if (!mimeType && !canWC) return toast('This browser can’t record video. Try Chrome, Edge, Firefox or Safari.', 6000);
   // A short: only its part of the video. Otherwise the whole thing.
   const part = S.o.clip || S.o.trim;
   const range = part ? { start: part.start, end: Math.min(part.end, video.duration) } : { start: 0, end: video.duration };
@@ -2242,6 +2246,9 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
   const xcanvas = kind === 'alpha' ? xcanvasAlpha : xcanvasOpaque;
   const xctx = kind === 'alpha' ? xctxAlpha : xctxOpaque;
   xcanvas.width = size.w; xcanvas.height = size.h;
+  // Resizing a canvas resets its state. High-quality smoothing makes the 4K → 1080p downscale sharp
+  // instead of jagged/soft (the browser default is 'low').
+  xctx.imageSmoothingEnabled = true; xctx.imageSmoothingQuality = 'high';
   setExportUI(true);
   $('exportTitle').textContent = batch ? `Exporting short ${batch}…` : kind === 'video' ? 'Exporting video…' : kind === 'alpha' ? 'Exporting transparent captions…' : 'Exporting green-screen captions…';
   $('exportBar').style.width = '0%';
@@ -2260,6 +2267,31 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
   let stopClock = null;
   try {
     const srcBps = S.file.size * 8 / video.duration;
+    // Captions only (transparent / green screen): no source video to decode, so draw and encode every
+    // frame offline. Steady 30 fps, sharp text, and a real alpha channel for the transparent file.
+    if (overlay && canWC && !window.__vczNoOverlayFast) {
+      S.exportVia = 'overlay';
+      const fps = 30, t0x = performance.now();
+      const bitrate = Math.round(Math.min(40e6, Math.max(8e6, size.w * size.h * fps * 0.12)));
+      const blob = await exportOverlay({
+        width: size.w, height: size.h, dur, fps, canvas: xcanvas, bitrate, job, alpha: kind === 'alpha',
+        draw: t => paint(range.start + t),
+        onProgress: (p, t) => {
+          $('exportBar').style.width = `${(p * 100).toFixed(1)}%`;
+          $('exportText').textContent = `${Math.round(p * 100)}% · ${fmt(t)} of ${fmt(dur)} · ${size.w}×${size.h} · captions only`;
+        },
+      }).catch(err => { console.warn('Frame-by-frame captions export failed, using the recorder', err); return null; });
+      if (blob === 'cancelled' || job.cancelled) { status('Export cancelled.'); return; }
+      if (blob) {
+        const suffix = S.o.clip ? shortTag(range) : kind === 'alpha' ? 'captions-transparent' : 'captions-greenscreen';
+        const name = `${S.file.name.replace(/\.[^.]+$/, '')}-${suffix}.${kind === 'alpha' ? 'webm' : 'mp4'}`;
+        download(blob, name);
+        status(`Exported “${name}” (${fmtBytes(blob.size)}, ${size.w}×${size.h}) in ${((performance.now() - t0x) / 1000).toFixed(1)} s.` +
+          (kind === 'green' ? ' In CapCut or InShot: add it as an overlay, then use Chroma Key on the green.' : ' Transparent background — drop it on top of your video in Premiere, DaVinci Resolve or After Effects.'));
+        window.__vczLastExport = 'overlay';
+        return;
+      }
+    }
     // Best quality first: WebCodecs (H.264 at ≥ source bitrate, original audio copied as-is).
     // Fastest first: decode → draw → encode without real-time playback (H.264 MP4). Sound effects need the
     // real-time mix below, so they skip this path for now.
@@ -2344,11 +2376,13 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
       }
       video.currentTime = 0;
     }
+    if (!mimeType) throw new Error('This browser can’t encode this export. Try Chrome or Edge on a computer.');
     window.__vczLastExport = 'mediarecorder';
     S.exportVia = 'mediarecorder';
     // Match the source: bitrate from the file (capped), frame rate from the decoded frames.
     const k = (size.w * size.h) / ((video.videoWidth || size.w) * (video.videoHeight || size.h));
-    const vbr = Math.round(Math.min(60e6, Math.max(4e6, srcBps * 1.15 * k)));
+    // Real-time recording loses detail at low bitrates: give 1080p+ at least 12 Mbit/s.
+    const vbr = Math.round(Math.min(60e6, Math.max(size.w * size.h >= 1800000 ? 12e6 : 6e6, srcBps * 1.15 * k)));
     const useRVFC = !overlay && !!video.requestVideoFrameCallback;
     const stream = useRVFC ? xcanvas.captureStream() : xcanvas.captureStream(30);
 
