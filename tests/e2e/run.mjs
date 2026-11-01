@@ -687,6 +687,31 @@ await step('colour grading: looks change the preview, .cube import, undo, and th
   await ctx.close();
 });
 
+await step('style panel is contextual: closed by default, opens on caption click, ✕ closes it', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.setInputFiles('#srtIn', join(FIX, 'sample.srt'));
+  await m.waitForSelector('.seg textarea');
+  // Closed by default: the heavy style controls are not shown, only a hint.
+  assert.equal(await m.isVisible('#fontSel'), false, 'style controls hidden until a caption is clicked');
+  assert.equal(await m.isVisible('#propsHint'), true, 'hint shown while collapsed');
+  // Click a caption → the style panel opens.
+  await m.locator('.seg textarea').first().click();
+  await m.waitForSelector('#fontSel:visible');
+  assert.equal(await m.isVisible('#fontSel'), true, 'clicking a caption opens its style');
+  assert.equal(await m.isVisible('#propsHint'), false, 'hint gone once open');
+  // ✕ closes it again.
+  await m.click('#propsClose');
+  assert.equal(await m.isVisible('#fontSel'), false, '✕ collapses the panel');
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('timeline: words, captions and waveform; click jumps, double-click edits, Delete removes, vertical-position slider moves captions', async () => {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, serviceWorkers: 'block' });
   const m = await ctx.newPage();
