@@ -93,6 +93,16 @@ footer { padding: 36px 0; color: var(--muted); font-size: 14px; text-align: cent
 
 /* Editor */
 .app { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr) minmax(290px, 340px); gap: 16px; padding: 16px; height: calc(100vh - 62px); height: calc(100dvh - 62px); }
+/* The right properties panel is folded into the left tabs. Desktop two-column layout is handled in
+   the ≥1101px block below; on phones/tablets (≤1100px) the editor stays single-column as before. */
+/* Fine-tune caption style + project details: collapsible folds inside the Captions tab. */
+.adv-style, .proj-details { margin: 10px 0 4px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.adv-style > summary, .proj-details > summary { cursor: pointer; padding: 11px 13px; font-weight: 700; font-size: 13px; list-style: none; color: var(--text); }
+.adv-style > summary::-webkit-details-marker, .proj-details > summary::-webkit-details-marker { display: none; }
+.adv-style > summary::after, .proj-details > summary::after { content: "▾"; float: right; color: var(--muted); transition: transform .15s; }
+.adv-style[open] > summary::after, .proj-details[open] > summary::after { transform: rotate(180deg); }
+.adv-style > #paneStyle, .proj-details > #paneInfo { padding: 0 13px 12px; }
+.proj-details { margin-top: 14px; }
 /* Grid and flex children may shrink below their content width; without this, one long row of buttons widens the whole page. */
 .app > *, .panel, .panel-b, .stage, .tabs { min-width: 0; }
 .panel { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 0; }
@@ -591,10 +601,14 @@ body.no-scroll .nav { visibility: hidden; }
   .app.no-tl { grid-template-rows: minmax(0, 1fr) 0 0; }
   .app.no-tl #splitT { display: none; }
   .stage { gap: 8px; }
-  /* Collapsed style panel: shrink its column to the slim tab strip so the preview gets the room;
-     the resize handle is pointless while it's collapsed. */
-  .app.props-collapsed { --rw: 232px; }
-  .app.props-collapsed #splitR { visibility: hidden; }
+  /* Two-column editor (properties folded into the left tabs): tools | preview, timeline across. */
+  .app.no-props { grid-template-columns: var(--lw, 300px) 10px minmax(320px, 1fr);
+    grid-template-areas: "tools sl stage" "st st st" "tl tl tl"; }
+  .app.no-props[data-lay="left"] { grid-template-columns: minmax(320px, 1fr) 10px var(--lw, 300px);
+    grid-template-areas: "stage sl tools" "st st st" "tl tl tl"; }
+  .app.no-props[data-lay="right"] { grid-template-columns: var(--lw, 300px) 10px minmax(320px, 1fr);
+    grid-template-areas: "tools sl stage" "st st st" "tl tl tl"; }
+  .app.no-props #splitR { display: none; }
 }
 .panel.tools .ptabs { flex: none; }
 .lay-wrap { position: relative; }
@@ -994,7 +1008,11 @@ body.warping .intro-copy { transition: transform .7s ease-in, opacity .7s ease-i
   .app[data-lay="right"] { grid-template-areas: "tools sl props sr stage" "st st st sr stage" "tl tl tl sr stage"; }
   .app[data-lay="left"] { grid-template-areas: "stage sl tools sr props" "stage sl st st st" "stage sl tl tl tl"; }
   .app.big[data-lay] { grid-template-columns: 0 0 minmax(0, 1fr) 0 0 !important; grid-template-areas: "tools sl stage sr props" "st st st st st" "tl tl tl tl tl"; }
-  .app:is([data-lay="right"], [data-lay="left"]) .size-ctl { display: none; }
+  /* No-props (properties folded into the left tabs): one side panel + preview on top, with the
+     timeline running full width underneath (a wide timeline is better than a narrow side one).
+     data-lay only flips which side the tools panel sits on; see the base no-props rules above. */
+  .app.no-props.big[data-lay] { grid-template-columns: 0 0 minmax(0, 1fr) !important; grid-template-areas: "tools sl stage" "st st st" "tl tl tl"; }
+  .app:is([data-lay="right"], [data-lay="left"]):not(.no-props) .size-ctl { display: none; }
   .app:is([data-lay="right"], [data-lay="left"]):not(.big) .stage { padding-top: 0; }
 }
 .media-import.over { border-color: var(--accent); background: rgba(139,92,246,.12); }

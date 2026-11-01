@@ -281,7 +281,7 @@ $('styleFor').addEventListener('click', e => {
     };
   };
   splitter($('splitL'), 'lw', () => document.querySelector('.panel.tools'));
-  splitter($('splitR'), 'rw', () => document.querySelector('.panel.props'));
+  if ($('splitR')) splitter($('splitR'), 'rw', () => document.querySelector('.panel.props'));
   splitter($('splitT'), 'th', () => $('tlDock'));
   const menu = $('layMenu'), btn = $('layBtn');
   const open = on => { menu.hidden = !on; btn.setAttribute('aria-expanded', on); };
@@ -457,21 +457,37 @@ function showLTab(which) {
   if (which === 'text') renderTextUI();
 }
 LTABS.forEach(([tab, , id]) => { $(tab).onclick = () => showLTab(id); });
-const RTABS = [['tabStyle', 'paneStyle', 'style'], ['tabTxt', 'paneTxtProps', 'text'], ['tabInfo', 'paneInfo', 'info']];
-// The style panel stays closed until you click a caption / word / text (or a tab) — it is not a
-// permanent wall of controls. openProps/closeProps toggle it; any selection calls openProps.
-function openProps() { document.querySelector('.panel.props')?.classList.remove('collapsed'); $('editor')?.classList.remove('props-collapsed'); }
-function closeProps() { document.querySelector('.panel.props')?.classList.add('collapsed'); $('editor')?.classList.add('props-collapsed'); }
-function showRTab(which) {
-  openProps();
-  for (const [tab, pane, id] of RTABS) {
-    const on = which === id;
-    $(tab).classList.toggle('on', on); $(tab).setAttribute('aria-selected', on); $(pane).hidden = !on;
+// ---- Everything lives in the left tabs now ----
+// The old separate right "properties" panel is folded in: caption style goes under the Captions
+// tab (a "Fine-tune" fold for the detailed controls), text-overlay props under the Text tab, and
+// project info into a small "Project details" fold. All control ids and their bindings are kept,
+// so the rest of the code is unchanged — we only move the DOM and delegate showRTab to the tabs.
+(function foldProps() {
+  const caps = $('paneCaptions'), ptext = $('paneText'), pStyle = $('paneStyle'), pTxt = $('paneTxtProps'), pInfo = $('paneInfo');
+  if (!caps || !pStyle) return;
+  const adv = document.createElement('details');
+  adv.className = 'adv-style'; adv.id = 'advStyle';
+  adv.innerHTML = '<summary>⚙ Fine-tune caption style — outline, background, animation, layout, position</summary>';
+  pStyle.hidden = false; pStyle.removeAttribute('role'); adv.appendChild(pStyle);
+  caps.appendChild(adv);
+  if (ptext && pTxt) { pTxt.hidden = false; pTxt.removeAttribute('role'); ptext.appendChild(pTxt); }
+  if (pInfo) {
+    const det = document.createElement('details');
+    det.className = 'proj-details'; det.id = 'projDetails';
+    det.innerHTML = '<summary>Project details</summary>';
+    pInfo.hidden = false; pInfo.removeAttribute('role'); det.appendChild(pInfo);
+    caps.appendChild(det);
   }
-  if (which === 'info') renderInfo();
+  document.querySelector('.panel.props')?.remove();
+  $('editor')?.classList.add('no-props');
+})();
+// Kept for all the callers that ask for a "right tab": now they just open the right left-tab.
+function showRTab(which) {
+  if (which === 'text') { showLTab('text'); return; }
+  showLTab('captions');
+  if (which === 'style' && $('advStyle')) $('advStyle').open = true;
+  if (which === 'info') { renderInfo(); if ($('projDetails')) $('projDetails').open = true; }
 }
-RTABS.forEach(([tab, , id]) => { $(tab).onclick = () => showRTab(id); });
-if ($('propsClose')) $('propsClose').onclick = () => closeProps();
 function showTab(which) { if (which === 'style') showRTab('style'); else showLTab(which); }
 
 // ---------- colour grading ----------
@@ -1240,7 +1256,7 @@ function renderSegs() {
 }
 function markSel() {
   [...$('segs').children].forEach((r, k) => r.classList.toggle('sel', k === S.selected));
-  if (S.selected >= 0) { openProps(); showRTab('style'); }   // clicking a caption opens its style panel
+  if (S.selected >= 0) showLTab('captions');   // clicking a caption shows the Captions tab (style is there)
 }
 function highlightSeg(t) {
   const idx = C.indexAt(S.segments, t);
@@ -2994,6 +3010,9 @@ const STICKERS = ['🔥', '😱', '🤯', '✅', '❌', '➡️', '👉', '💰'
 function addElement(o) {
   const L = newLayer({ start: 0, end: S.image ? 1 : 3, y: 0.3 + (texts().length % 5) * 0.1, ...o });
   S.o.texts = [...texts(), L]; commit(); selectText(L.id);
+  // In the design/thumbnail editor the stickers + elements live in the Thumbnail tab; selecting the
+  // new text switched to the Text tab, so come back so the palette stays in reach.
+  if (S.image) showLTab('thumb');
 }
 {
   const box = $('thumbElements');
