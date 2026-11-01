@@ -333,7 +333,9 @@ export function mountTimeline(root, api) {
         const x0 = e.clientX, s0 = tr.start, e0 = tr.end;
         h.onpointermove = ev => {
           const dt = (ev.clientX - x0) / pps;
-          const s = which === 'l' ? Math.max(0, Math.min(e0 - 1, s0 + dt)) : s0, en = which === 'r' ? Math.min(dur, Math.max(s0 + 1, e0 + dt)) : e0;
+          let s = which === 'l' ? Math.max(0, Math.min(e0 - 1, s0 + dt)) : s0, en = which === 'r' ? Math.min(dur, Math.max(s0 + 1, e0 + dt)) : e0;
+          // Snap to beats: pull the handle being dragged onto the nearest beat when close.
+          if (api.snap) { if (which === 'l') s = Math.max(0, Math.min(e0 - 1, api.snap(s))); else en = Math.min(dur, Math.max(s0 + 1, api.snap(en))); }
           api.setTrim(s, en, false); renderVideo(dur); api.seek(which === 'l' ? s : en);
         };
         h.onpointerup = () => { h.onpointermove = h.onpointerup = null; const t = api.trim() || { start: 0, end: dur }; api.setTrim(t.start, t.end, true); };

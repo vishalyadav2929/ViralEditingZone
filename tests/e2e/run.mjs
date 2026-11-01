@@ -500,6 +500,34 @@ await step('home: Auto-run toggle exists, is off by default, and controls S.auto
   await ctx.close();
 });
 
+await step('beats: detect a beat, then "Snap cuts to beats" appears and toggles S.o.snapBeats', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 860 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message));
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.click('#ltabSnd');                                 // open the Audio panel (holds music + beats)
+  await m.setInputFiles('#musicIn', join(FIX, 'beat.mp3'));
+  await m.waitForFunction(() => window.__vcz.S.o.music, null, { timeout: 15000 });
+  await m.waitForSelector('#beatsBtn:visible');
+  // Snap option is hidden until there are beats.
+  assert.equal(await m.isVisible('#snapBeatsWrap'), false, 'no snap option before detecting beats');
+  await m.click('#beatsBtn');
+  await m.waitForFunction(() => (window.__vcz.S.o.beats || []).length > 0, null, { timeout: 15000 });
+  assert.equal(await m.isVisible('#snapBeatsWrap'), true, 'snap option shows once beats exist');
+  assert.equal(await m.evaluate(() => !!window.__vcz.S.o.snapBeats), false, 'off by default');
+  await m.check('#snapBeats');
+  assert.equal(await m.evaluate(() => window.__vcz.S.o.snapBeats), true, 'turning it on sets the flag');
+  // Clearing the grid also clears snapping and hides the option.
+  await m.click('#beatsClear');
+  assert.equal(await m.isVisible('#snapBeatsWrap'), false, 'cleared → option hidden');
+  assert.equal(await m.evaluate(() => !!window.__vcz.S.o.snapBeats), false, 'cleared → snap off');
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('home: example videos show live captions on real clips (from examples/manifest.json)', async () => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   const m = await ctx.newPage();

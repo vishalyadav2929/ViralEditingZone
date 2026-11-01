@@ -114,7 +114,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps, beats: S.o.beats, beatGroup: S.o.beatGroup });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps, beats: S.o.beats, beatGroup: S.o.beatGroup, snapBeats: S.o.snapBeats });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -577,6 +577,8 @@ var timeline = mountTimeline($('timeline'), {
   clip: () => S.o.clip || null,
   beats: () => S.o.beats || null,
   beatGroup: () => S.o.beatGroup || 4,
+  snap: t => snapT(t),
+  snapOn: () => !!S.o.snapBeats,
   makeCaptions: () => { showLTab('captions'); startCaptions(); timeline.render(); },
   captionsBusy: () => genRunning,
   media: () => (S.file && !S.image && S.fileURL ? { url: S.fileURL, name: S.file.name.replace(/\.[^.]+$/, ''), dur: video.duration || 0 } : null),
@@ -607,6 +609,7 @@ var timeline = mountTimeline($('timeline'), {
     if (save) { commit(); timeline.render(); if (S.o.trim) toast(`Trimmed: ${fmt(S.o.trim.start)}–${fmt(S.o.trim.end)}. The export uses only this part.`); }
   },
   splitAt: t => {
+    t = snapT(t);
     const i = C.indexAt(S.segments, t), seg = S.segments[i];
     const at = seg ? seg.words.filter(w => w.start < t).length : 0;
     if (!seg || at <= 0 || at >= seg.words.length) return toast('Move the playhead inside a caption, between two words, then press Split.');
@@ -1034,6 +1037,12 @@ function removeSilences(quiet) {
   commit(); timeline.render();
   if (!quiet) toast(`Cut ${found.length} pause${found.length > 1 ? 's' : ''} (${saved.toFixed(1)} s shorter). Red parts on the video track are skipped; click one to bring it back. Ctrl+Z undoes.`, 7000);
   return saved;
+}
+/** With "Snap to beats" on, pull a time onto the nearest detected music beat when it's close (<0.25 s). */
+function snapT(t) {
+  if (!S.o.snapBeats || !S.o.beats || !S.o.beats.length) return t;
+  const b = nearestBeat(S.o.beats, t);
+  return (b != null && Math.abs(b - t) < 0.25) ? +b.toFixed(3) : t;
 }
 /** Auto-run is off: captions are ready, so point the user at the Auto edit button instead of running it. */
 function offerAutoEdit(msg) {
@@ -2081,6 +2090,8 @@ function renderMusicUI() {
   if ($('beatsClear')) $('beatsClear').hidden = !nb;
   if ($('beatsInfo')) $('beatsInfo').textContent = nb ? `${S.o.beats.length} beats · ~${S.o.bpm || '?'} BPM` : '';
   if ($('beatsGroup') && S.o.beatGroup) $('beatsGroup').value = S.o.beatGroup;
+  if ($('snapBeatsWrap')) $('snapBeatsWrap').hidden = !nb;        // only offer snapping once there are beats
+  if ($('snapBeats')) $('snapBeats').checked = !!S.o.snapBeats;
 }
 // Analyse the music for its beat and lay a beat grid on the timeline (grouped into 4 / 8 / 16 counts).
 async function detectBeatsFromMusic() {
@@ -2109,7 +2120,8 @@ if ($('musicIn')) {
   $('musicStart0').onclick = () => { if (S.o.music) { S.o.music.start = 0; commit(); renderMusicUI(); timeline.render(); syncMusic(); } };
   $('beatsBtn').onclick = detectBeatsFromMusic;
   $('beatsGroup').onchange = () => { if (S.o.beats) { S.o.beatGroup = +$('beatsGroup').value || 4; commit(); timeline.render(); } };
-  $('beatsClear').onclick = () => { S.o.beats = null; commit(); renderMusicUI(); timeline.render(); toast('Beat grid cleared.'); };
+  $('beatsClear').onclick = () => { S.o.beats = null; S.o.snapBeats = false; commit(); renderMusicUI(); timeline.render(); toast('Beat grid cleared.'); };
+  if ($('snapBeats')) $('snapBeats').onchange = e => { S.o.snapBeats = e.target.checked; commit(); toast(S.o.snapBeats ? 'Snap on: Split and the trim handles jump to the nearest beat.' : 'Snap off: cuts land exactly where you drop them.', 3500); };
 }
 
 let exportJob = null;

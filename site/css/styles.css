@@ -1248,3 +1248,5 @@ body.studio {
 .beats-row { gap: 8px; align-items: center; flex-wrap: wrap; }
 .beats-row select { padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
 .beats-row .inline { font-size: 13px; color: var(--muted); }
+.snap-beats { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text) !important; }
+.snap-beats input { width: 15px; height: 15px; accent-color: #8b5cf6; cursor: pointer; }
