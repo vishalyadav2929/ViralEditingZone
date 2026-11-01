@@ -1888,6 +1888,36 @@ await step('per-clip speed + volume: set from the context toolbar, applied to pr
   await ctx.close();
 });
 
+await step('auto beats: detect the music tempo and show a 4/8/16 beat grid on the timeline', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 850 }, serviceWorkers: 'block' });
+  const m = await ctx.newPage();
+  const errs = []; m.on('pageerror', e => errs.push(e.message)); m.on('dialog', d => d.accept());
+  await m.goto(`${BASE}/app.html`);
+  await m.click('#startSkip');
+  await m.setInputFiles('#fileIn', join(FIX, 'portrait.webm'));
+  await m.waitForSelector('#timeline:not([hidden])');
+  await m.waitForTimeout(300);
+  await m.click('#ltabSnd');
+  await m.setInputFiles('#musicIn', join(FIX, 'beat.mp3'));
+  await m.waitForSelector('#musicCard:not([hidden])');
+  await m.click('#beatsBtn');
+  await m.waitForFunction(() => (window.__vcz.S.o.beats || []).length > 0, null, { timeout: 15000 });
+  const r = await m.evaluate(() => ({ beats: window.__vcz.S.o.beats.length, bpm: window.__vcz.S.o.bpm, markers: document.querySelectorAll('#timeline .tl-beats i').length, strong4: document.querySelectorAll('#timeline .tl-beats i.strong').length }));
+  assert.ok(Math.abs(r.bpm - 120) <= 4, `~120 BPM, got ${r.bpm}`);          // beat.mp3 is a kick every 0.5s
+  assert.ok(r.beats >= 14 && r.beats <= 20, `~17 beats, got ${r.beats}`);
+  assert.equal(r.markers, r.beats, 'a marker per beat on the timeline');
+  // 8-count regroups which markers are strong.
+  await m.selectOption('#beatsGroup', '8');
+  await m.waitForTimeout(150);
+  const strong8 = await m.evaluate(() => document.querySelectorAll('#timeline .tl-beats i.strong').length);
+  assert.ok(strong8 < r.strong4, `8-count has fewer strong lines than 4-count (${strong8} < ${r.strong4})`);
+  // Clear removes the grid.
+  await m.click('#beatsClear');
+  assert.equal(await m.evaluate(() => (window.__vcz.S.o.beats || []).length), 0);
+  assert.deepEqual(errs, []);
+  await ctx.close();
+});
+
 await step('no uncaught page errors', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();

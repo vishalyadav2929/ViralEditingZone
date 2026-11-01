@@ -39,6 +39,7 @@ export function mountTimeline(root, api) {
         <div class="tl-row tl-video"><canvas class="tl-film" height="44"></canvas><span class="tv-name"></span><i class="tv-dim l"></i><i class="tv-dim r"></i><i class="tv-h l" title="Drag to trim the start"></i><i class="tv-h r" title="Drag to trim the end"></i></div>
         <canvas class="tl-wave" height="40"></canvas>
         <div class="tl-clip" hidden></div>
+        <div class="tl-beats" hidden></div>
         <div class="tl-head"></div>
       </div>
     </div>
@@ -234,10 +235,22 @@ export function mountTimeline(root, api) {
     const clip = api.clip ? api.clip() : null, cb = root.querySelector('.tl-clip');
     cb.hidden = !clip;
     if (clip) { cb.style.left = `${clip.start * pps}px`; cb.style.width = `${(clip.end - clip.start) * pps}px`; }
+    renderBeats();
     drawWave(W);
     layout();
     syncPos();
     tick(api.time());
+  }
+
+  // Beat grid from the music: thin lines on every beat, a stronger line every 4/8/16 (the chosen count),
+  // so cuts and text can be snapped to the beat by eye.
+  function renderBeats() {
+    const el = root.querySelector('.tl-beats');
+    const beats = api.beats ? api.beats() : null;
+    if (!beats || !beats.length) { el.hidden = true; el.innerHTML = ''; return; }
+    const g = Math.max(1, (api.beatGroup ? api.beatGroup() : 4) | 0);
+    el.hidden = false;
+    el.innerHTML = beats.map((t, i) => `<i class="${i % g === 0 ? 'strong' : ''}" style="left:${t * pps}px"></i>`).join('');
   }
 
   // Tracks stacked like CapCut (texts on top, then captions, sounds, the video and its audio), each
