@@ -32,8 +32,10 @@ const BASE = `http://localhost:${server.address().port}`;
 
 const results = [];
 // ONLY=<text> runs just the steps whose name contains it (handy for steps with their own browser context).
+// Several, separated by "|", run each match — e.g. a step plus the earlier steps it builds on.
+const ONLY = process.env.ONLY ? process.env.ONLY.split('|') : null;
 const step = async (name, fn) => {
-  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
+  if (ONLY && !ONLY.some(s => name.includes(s))) return;
   try { await fn(); results.push(['PASS', name]); console.log('PASS', name); }
   catch (e) { results.push(['FAIL', name, e.message]); console.log('FAIL', name, '\n  ', e.message); }
 };
@@ -81,6 +83,8 @@ await step('choosing languages starts captions automatically and opens the edito
   await page.click('#spokenCombo .combo-btn');
   await page.fill('#spokenCombo input', 'hindi');
   await page.keyboard.press('Enter');
+  // Hindi / Hinglish speech defaults to the "Best for Hindi" model on a computer.
+  assert.equal(await page.inputValue('#startModel'), 'best', 'Hindi defaults to the best model on computers');
   await page.click('#captionCombo .combo-btn');
   const opts = await page.$$eval('#captionCombo [role=option]', els => els.map(e => e.textContent));
   assert.deepEqual(opts, ['Hindi', 'Hinglish (Roman Hindi)', 'English']);
@@ -93,6 +97,14 @@ await step('choosing languages starts captions automatically and opens the edito
   assert.equal(await vcz(() => window.__vczAudioLength), 6 * 16000, 'decoded 6 s of 16 kHz audio');
   const saved = await page.evaluate(() => localStorage.getItem('vcz-langs'));
   assert.match(saved, /hinglish/);
+  // A quality picked by hand is remembered and wins over the Hindi default; the editor's picker follows it.
+  const pick = (id, v) => page.evaluate(([id, v]) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change')); }, [id, v]);
+  await pick('model', 'balanced');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('vcz-langs')).qualityPicked), true);
+  assert.equal(await page.inputValue('#startModel'), 'balanced', 'both pickers stay in step');
+  await pick('lang', '0'); // Hindi
+  assert.equal(await page.inputValue('#model'), 'balanced', 'hand-picked quality kept when the language changes');
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('vcz-langs')); delete s.qualityPicked; localStorage.setItem('vcz-langs', JSON.stringify(s)); });
 });
 
 await step('sample caption shows the template on the video before captions exist', async () => {

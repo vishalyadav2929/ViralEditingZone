@@ -156,6 +156,7 @@ LANGUAGES.forEach((l, i) => {
 $('lang').onchange = () => {
   const l = LANGUAGES[$('lang').value];
   if (l.hinglish && !S.hinglish) { S.hinglish = true; $('hinglish').checked = true; renderSegs(); commit(); }
+  $('model').value = qualityFor(l); // Hindi / Hinglish → Best for Hindi on computers, unless picked by hand
   if (S.mode === 'live' && recog) { stopRecognition(); startRecognition(); }
 };
 
@@ -3343,6 +3344,18 @@ const store = {
   get() { try { return JSON.parse(localStorage.getItem('vcz-langs') || 'null'); } catch { return null; } },
   set(v) { try { localStorage.setItem('vcz-langs', JSON.stringify(v)); } catch { /* private mode */ } },
 };
+// Hindi and Hinglish speech is where the small model is far better than the base one, so it is the
+// default on computers. Phones keep Balanced: the 250–400 MB model runs out of memory there.
+// A quality the user picks by hand is remembered and always wins over this default.
+const IS_PHONE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+const defaultQuality = lang => (lang && lang.whisper === 'hindi' && !IS_PHONE ? 'best' : 'balanced');
+const pickedQuality = () => { const s = store.get(); return s && s.qualityPicked ? s.quality : null; };
+const qualityFor = lang => pickedQuality() || defaultQuality(lang);
+['startModel', 'model'].forEach(id => $(id).addEventListener('change', e => {
+  const v = e.target.value;
+  $('startModel').value = v; $('model').value = v;
+  store.set({ ...(store.get() || {}), quality: v, qualityPicked: true });
+}));
 const spokenItems = LANGUAGES.map((l, i) => ({ id: i, label: l.name, lang: l }))
   .filter(it => !it.lang.hinglish)
   .sort((a, b) => (a.lang.whisper ? 1 : 0) - (b.lang.whisper ? 1 : 0) || a.label.localeCompare(b.label));
@@ -3351,10 +3364,8 @@ const captionCombo = combo($('captionCombo'), 'Select a language', 'Search capti
 const spokenCombo = combo($('spokenCombo'), 'Select a language', 'Search spoken language…', it => {
   start.spoken = it;
   const l = it && it.lang;
-  // Hindi is where the small model clearly beats base. Suggest it on computers (phones keep Balanced to save memory).
-  const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
-  // Balanced everywhere by default: "Best" is a 250 MB download and very slow on ordinary laptops.
-  if (l) $('startModel').value = 'balanced';
+  // Hindi / Hinglish → "Best for Hindi" on computers by default (see defaultQuality); a hand-picked quality wins.
+  if (l) $('startModel').value = qualityFor(l);
   const own = l ? l.name.split(' — ')[0].replace(/ \(.*\)/, '') : '';
   const opts = !l ? [] : l.whisper === 'hindi'
     ? [{ id: 'native', label: 'Hindi' }, { id: 'hinglish', label: 'Hinglish (Roman Hindi)' }, { id: 'english', label: 'English' }]
@@ -3384,7 +3395,7 @@ spokenCombo.setItems(spokenItems);
     captionCombo.setItems(opts);
     captionCombo.set(saved.caption);
     start.caption = captionCombo.get();
-    if (saved.quality) $('startModel').value = saved.quality;
+    $('startModel').value = qualityFor(sp.lang);
   }
 }
 
@@ -3397,7 +3408,8 @@ function syncStart() {
 }
 function beginFromStart() {
   if (!S.file || !start.spoken || !start.caption || genRunning) return;
-  store.set({ spoken: start.spoken.lang.name, caption: start.caption.id, quality: $('startModel').value });
+  const prev = store.get() || {};
+  store.set({ spoken: start.spoken.lang.name, caption: start.caption.id, quality: $('startModel').value, qualityPicked: !!prev.qualityPicked });
   $('lang').value = start.spoken.id;
   $('model').value = $('startModel').value;
   $('translate').checked = start.caption.id === 'english';
@@ -3419,7 +3431,7 @@ function autoCaption() {
   const sp = saved && spokenItems.find(x => x.lang.name === saved.spoken);
   if (!sp) { renderSegs(); return; } // no saved languages yet: the "Make captions" button is shown instead
   $('lang').value = sp.id;
-  if (saved.quality) $('model').value = saved.quality;
+  $('model').value = qualityFor(sp.lang);
   runGeneration({ lang: sp.lang, mode: saved.caption || 'native', quality: $('model').value });
 }
 
