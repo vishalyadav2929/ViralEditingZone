@@ -38,6 +38,49 @@ export const LOOKS = {
   } },
   vivid: { name: 'Vivid Pop', fn: (r, g, b) => { [r, g, b] = sat(r, g, b, 1.38); return [scurve(r, 0.25), scurve(g, 0.25), scurve(b, 0.25)]; } },
   bw: { name: 'B&W', fn: (r, g, b) => { const l = scurve(lum(r, g, b), 0.4); return [l, l, l]; } },
+  tealorange: { name: 'Teal & Orange', fn: (r, g, b) => {
+    const l = lum(r, g, b), t = l - 0.5; // stronger split than Cinematic: warm skin, teal shadows
+    [r, g, b] = [r + t * 0.28, g + t * 0.02, b - t * 0.3];
+    [r, g, b] = sat(r, g, b, 1.15);
+    return [scurve(r, 0.4), scurve(g, 0.4), scurve(b, 0.4)];
+  } },
+  bollywood: { name: 'Bollywood', fn: (r, g, b) => {
+    [r, g, b] = [r * 1.08 + 0.03, g * 1.02 + 0.015, b * 0.92];
+    return sat(scurve(r, 0.3), scurve(g, 0.3), scurve(b, 0.3), 1.3);
+  } },
+  noir: { name: 'Film Noir', fn: (r, g, b) => { const l = scurve(scurve(lum(r, g, b), 0.6), 0.4); return [l, l, l]; } },
+  wedding: { name: 'Wedding', fn: (r, g, b) => {
+    [r, g, b] = sat(r, g, b, 0.85);
+    return [r * 0.88 + 0.1, g * 0.88 + 0.08, b * 0.86 + 0.07];
+  } },
+  travel: { name: 'Travel Vibrant', fn: (r, g, b) => {
+    [r, g, b] = [r, g * 1.04, b * 1.06 + 0.01];
+    [r, g, b] = sat(r, g, b, 1.35);
+    return [scurve(r, 0.2), scurve(g, 0.2), scurve(b, 0.2)];
+  } },
+  neon: { name: 'Night Neon', fn: (r, g, b) => {
+    const s = 1 - lum(r, g, b); // push shadows toward blue-violet
+    [r, g, b] = [r + s * 0.06, g - s * 0.02, b + s * 0.14];
+    return sat(scurve(r, 0.35), scurve(g, 0.35), scurve(b, 0.35), 1.25);
+  } },
+  matte: { name: 'Matte Fade', fn: (r, g, b) => {
+    [r, g, b] = sat(r, g, b, 0.9);
+    return [r * 0.86 + 0.09, g * 0.86 + 0.09, b * 0.86 + 0.1];
+  } },
+  sepia: { name: 'Sepia', fn: (r, g, b) => {
+    const l = scurve(lum(r, g, b), 0.2);
+    return [l * 1.07 + 0.04, l * 0.9 + 0.03, l * 0.7 + 0.02];
+  } },
+  cyberpunk: { name: 'Cyberpunk', fn: (r, g, b) => {
+    const t = lum(r, g, b) - 0.5; // magenta highlights, cyan-blue shadows
+    [r, g, b] = [r + 0.06 + t * 0.1, g * 0.9, b + 0.08 - t * 0.12];
+    return sat(scurve(r, 0.35), scurve(g, 0.35), scurve(b, 0.35), 1.3);
+  } },
+  coldmoody: { name: 'Cold Moody', fn: (r, g, b) => {
+    [r, g, b] = sat(r, g, b, 0.55);
+    [r, g, b] = [r * 0.94, g * 0.98, b * 1.05 + 0.02];
+    return [scurve(r, 0.45) * 0.9 + 0.02, scurve(g, 0.45) * 0.9 + 0.03, scurve(b, 0.45) * 0.9 + 0.05];
+  } },
 };
 
 /** A size³ RGB LUT (red changes fastest, like .cube files) as Uint8Array. */
