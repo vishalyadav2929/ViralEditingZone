@@ -1762,10 +1762,17 @@ function cancelTranscribe() {
 }
 function applyTranscript(res, captionMode) {
   if (!res.words.length) return false;
-  S.hinglish = captionMode === 'hinglish';
   const hint = captionMode === 'english' ? 'en' : (S.genLang && S.genLang.bcp ? S.genLang.bcp.split('-')[0] : null);
   S.textLang = detectTextLang(res.words.map(w => w.text).join(' '), hint);
+  // Auto mode: Hindi speech is captioned in Hinglish (Roman Hindi) by default — never translated
+  // to English and not left in Devanagari. Anything else stays exactly as spoken.
+  S.hinglish = captionMode === 'hinglish' || (captionMode === 'auto' && S.textLang === 'hi');
   S.segments = C.segmentsFromWords(res.words, wordsPerCaption(), 32);
+  // Auto-detect run: point the editor's language box at the language that was actually heard.
+  if (!S.genLang && S.textLang) {
+    const idx = LANGUAGES.findIndex(l => l.whisper && l.bcp.split('-')[0] === S.textLang && !l.hinglish);
+    if (idx >= 0) $('lang').value = String(idx);
+  }
   S.selected = -1;
   syncControls(); renderSegs(); syncActions(); commit();
   return true;
@@ -1798,7 +1805,7 @@ async function runGeneration({ lang, mode, quality }) {
   try {
     // Show captions part by part while the rest is still being transcribed.
     const soFar = [];
-    S.hinglish = mode === 'hinglish';
+    S.hinglish = mode === 'hinglish' || mode === 'auto';
     const res = await transcribe({ lang, task, quality }, {
       onReset: () => { soFar.length = 0; S.segments = []; renderSegs(); },
       onWords: words => {
@@ -3363,6 +3370,16 @@ const qualityFor = lang => pickedQuality() || defaultQuality(lang);
 const spokenItems = LANGUAGES.map((l, i) => ({ id: i, label: l.name, lang: l }))
   .filter(it => !it.lang.hinglish)
   .sort((a, b) => (a.lang.whisper ? 1 : 0) - (b.lang.whisper ? 1 : 0) || a.label.localeCompare(b.label));
+// Auto-detect: no language is sent to the speech model, so Whisper hears the language itself.
+// applyTranscript then picks the caption style from what was actually heard (Hindi -> Hinglish).
+const AUTO_LANG = { name: 'Auto-detect', whisper: null, bcp: null, hinglish: false, auto: true };
+const AUTO_CAPTION_OPTS = [
+  { id: 'auto', label: 'Auto — Hinglish for Hindi, else as spoken' },
+  { id: 'native', label: 'Same as spoken' },
+  { id: 'hinglish', label: 'Hinglish (Roman Hindi)' },
+  { id: 'english', label: 'English' },
+];
+spokenItems.unshift({ id: -1, label: 'Auto-detect', lang: AUTO_LANG });
 const start = { spoken: null, caption: null };
 const captionCombo = combo($('captionCombo'), 'Select a language', 'Search caption language…', it => { start.caption = it; syncStart(); beginFromStart(); });
 const spokenCombo = combo($('spokenCombo'), 'Select a language', 'Search spoken language…', it => {
@@ -3371,7 +3388,7 @@ const spokenCombo = combo($('spokenCombo'), 'Select a language', 'Search spoken 
   // Hindi / Hinglish → "Best for Hindi" on computers by default (see defaultQuality); a hand-picked quality wins.
   if (l) $('startModel').value = qualityFor(l);
   const own = l ? l.name.split(' — ')[0].replace(/ \(.*\)/, '') : '';
-  const opts = !l ? [] : l.whisper === 'hindi'
+  const opts = !l ? [] : l.auto ? AUTO_CAPTION_OPTS : l.whisper === 'hindi'
     ? [{ id: 'native', label: 'Hindi' }, { id: 'hinglish', label: 'Hinglish (Roman Hindi)' }, { id: 'english', label: 'English' }]
     : l.whisper === 'english' ? [{ id: 'native', label: 'English' }]
       : !l.whisper ? [{ id: 'native', label: 'Same as spoken' }, { id: 'english', label: 'English' }]
@@ -3391,7 +3408,7 @@ spokenCombo.setItems(spokenItems);
     spokenCombo.set(sp.id);
     start.spoken = sp;
     const own = sp.lang.name.split(' — ')[0].replace(/ \(.*\)/, '');
-    const opts = sp.lang.whisper === 'hindi'
+    const opts = sp.lang.auto ? AUTO_CAPTION_OPTS : sp.lang.whisper === 'hindi'
       ? [{ id: 'native', label: 'Hindi' }, { id: 'hinglish', label: 'Hinglish (Roman Hindi)' }, { id: 'english', label: 'English' }]
       : sp.lang.whisper === 'english' ? [{ id: 'native', label: 'English' }]
         : !sp.lang.whisper ? [{ id: 'native', label: 'Same as spoken' }, { id: 'english', label: 'English' }]
@@ -3403,6 +3420,15 @@ spokenCombo.setItems(spokenItems);
   }
 }
 
+if (!start.spoken) {
+  // First visit (or choices cleared): Auto-detect is the default — no language picking needed.
+  spokenCombo.set(-1);
+  start.spoken = spokenItems[0];
+  captionCombo.setItems(AUTO_CAPTION_OPTS);
+  captionCombo.set('auto');
+  start.caption = captionCombo.get();
+  $('startModel').value = qualityFor(AUTO_LANG);
+}
 function syncStart() {
   const go = $('startGo');
   go.disabled = !(S.file && start.spoken && start.caption) || genRunning;
@@ -3414,7 +3440,7 @@ function beginFromStart() {
   if (!S.file || !start.spoken || !start.caption || genRunning) return;
   const prev = store.get() || {};
   store.set({ spoken: start.spoken.lang.name, caption: start.caption.id, quality: $('startModel').value, qualityPicked: !!prev.qualityPicked });
-  $('lang').value = start.spoken.id;
+  if (start.spoken.id >= 0) $('lang').value = start.spoken.id; // Auto (-1): applyTranscript sets the heard language
   $('model').value = $('startModel').value;
   $('translate').checked = start.caption.id === 'english';
   openEditor();
@@ -3434,7 +3460,7 @@ function autoCaption() {
   const saved = store.get();
   const sp = saved && spokenItems.find(x => x.lang.name === saved.spoken);
   if (!sp) { renderSegs(); return; } // no saved languages yet: the "Make captions" button is shown instead
-  $('lang').value = sp.id;
+  if (sp.id >= 0) $('lang').value = sp.id; // Auto (-1): applyTranscript sets the heard language
   $('model').value = qualityFor(sp.lang);
   runGeneration({ lang: sp.lang, mode: saved.caption || 'native', quality: $('model').value });
 }
