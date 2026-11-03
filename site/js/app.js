@@ -3401,27 +3401,13 @@ const spokenCombo = combo($('spokenCombo'), 'Select a language', 'Search spoken 
 });
 spokenCombo.setItems(spokenItems);
 {
-  // Remember last languages so the next upload starts captions immediately.
-  const saved = store.get();
-  const sp = saved && spokenItems.find(x => x.lang.name === saved.spoken);
-  if (sp) {
-    spokenCombo.set(sp.id);
-    start.spoken = sp;
-    const own = sp.lang.name.split(' — ')[0].replace(/ \(.*\)/, '');
-    const opts = sp.lang.auto ? AUTO_CAPTION_OPTS : sp.lang.whisper === 'hindi'
-      ? [{ id: 'native', label: 'Hindi' }, { id: 'hinglish', label: 'Hinglish (Roman Hindi)' }, { id: 'english', label: 'English' }]
-      : sp.lang.whisper === 'english' ? [{ id: 'native', label: 'English' }]
-        : !sp.lang.whisper ? [{ id: 'native', label: 'Same as spoken' }, { id: 'english', label: 'English' }]
-          : [{ id: 'native', label: own }, { id: 'english', label: 'English' }];
-    captionCombo.setItems(opts);
-    captionCombo.set(saved.caption);
-    start.caption = captionCombo.get();
-    $('startModel').value = qualityFor(sp.lang);
-  }
+  // Saved language choices are NOT restored: Auto-detect is always the starting default
+  // (user rule — Hindi speech -> Hinglish captions first priority, English -> English).
+  // A language picked by hand in the picker applies to that run only.
 }
 
-if (!start.spoken) {
-  // First visit (or choices cleared): Auto-detect is the default — no language picking needed.
+{
+  // Auto-detect is the default on every visit — no language picking needed.
   spokenCombo.set(-1);
   start.spoken = spokenItems[0];
   captionCombo.setItems(AUTO_CAPTION_OPTS);
@@ -3457,12 +3443,11 @@ function startCaptions() {
 /** A video was dropped into the editor: start captions straight away with the languages used last time. */
 function autoCaption() {
   if (S.image) return;
-  const saved = store.get();
-  const sp = saved && spokenItems.find(x => x.lang.name === saved.spoken);
-  if (!sp) { renderSegs(); return; } // no saved languages yet: the "Make captions" button is shown instead
-  if (sp.id >= 0) $('lang').value = sp.id; // Auto (-1): applyTranscript sets the heard language
-  $('model').value = qualityFor(sp.lang);
-  runGeneration({ lang: sp.lang, mode: saved.caption || 'native', quality: $('model').value });
+  // Always Auto-detect (same rule as the start screen): Hindi -> Hinglish, English -> English,
+  // anything else as spoken. The editor's language box is set to the heard language afterwards.
+  const auto = spokenItems[0];
+  $('model').value = qualityFor(auto.lang);
+  runGeneration({ lang: auto.lang, mode: 'auto', quality: $('model').value });
 }
 
 async function startFile(file) {
