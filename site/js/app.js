@@ -445,7 +445,7 @@ if ($('capShow')) $('capShow').onchange = e => { S.o.hideCaps = !e.target.checke
 
 // Left: tools (what to add). Right: details of what's selected. On phones the styles sit under the video.
 const LTABS = [['ltabMedia', 'paneMedia', 'media'], ['ltabClips', 'paneClips', 'clips'], ['ltabThumb', 'paneThumb', 'thumb'], ['tabCaptions', 'paneCaptions', 'captions'], ['ltabText', 'paneText', 'text'], ['ltabSnd', 'paneSnd', 'snd'],
-  ['ltabTpl', 'paneTpl', 'tpl'], ['tabColor', 'paneColor', 'color'], ['ltabAdj', 'paneAdjust', 'adjust']];
+  ['ltabTpl', 'paneTpl', 'tpl'], ['tabColor', 'paneColor', 'color'], ['ltabAdj', 'paneAdjust', 'adjust'], ['ltabAI', 'paneAI', 'ai']];
 function showLTab(which) {
   if (which === 'tpl' && matchMedia('(max-width: 1100px)').matches) which = 'captions';
   if (which !== 'tpl') S.lastTool = which; else renderStyleFor();
@@ -1502,6 +1502,47 @@ $('fsExit').onclick = () => { if (document.fullscreenElement) document.exitFulls
 $('fsPlay').onclick = () => $('playBtn').click();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && box.classList.contains('pseudo-fs')) pseudoFs(false); });
 window.__vczIsFs = isFs; window.__vczVideo = video; // tests
+
+// ---------- AI assistant bridge (js/ai-assist.js, bring-your-own-key) ----------
+// The AI module only ever receives caption TEXT through here — never audio or video.
+// Text edits go through C.setText + setSegments, the same path as typing in a caption box,
+// so word timings, undo and autosave behave exactly like a manual edit.
+window.BB_AI = {
+  hasVideo: () => !!S.file && !S.image && S.mode === 'file',
+  isBusy: () => genRunning || S.exporting,
+  segments: () => S.segments,
+  displayText: i => transform(C.segmentText(S.segments[i])),
+  hinglish: () => S.hinglish,
+  textLang: () => S.textLang || null,
+  fmt,
+  seekTo,
+  toast,
+  /** Replace every caption's text 1:1. Refuses (ok:false) unless the count matches exactly.
+      Segment start/end are never touched; C.setText keeps measured word times when the word
+      count is unchanged and re-spreads them (marked approx) when it is not. One undo step. */
+  applyTexts(textsIn) {
+    if (!Array.isArray(textsIn) || textsIn.length !== S.segments.length) return { ok: false };
+    let changed = 0;
+    const arr = S.segments.map((seg, i) => {
+      const next = C.setText(seg, String(textsIn[i] == null ? '' : textsIn[i]));
+      if (!next) return seg;
+      if (C.segmentText(next) !== C.segmentText(seg)) changed++;
+      return next;
+    });
+    setSegments(arr);
+    return { ok: true, changed };
+  },
+  /** Put a hook line on screen at the start (same behaviour as the AI edit plan's hook). */
+  addHook(text) {
+    text = String(text || '').trim();
+    if (!text) return false;
+    const hook = texts().find(l => l.hook && !l.part);
+    if (hook) hook.text = text;
+    else S.o.texts = [...texts(), newLayer({ text, start: 0, end: 3, x: 0.5, y: 0.16, size: 0.07, font: 'Montserrat', bold: true, strokeW: 0.14, hook: true, anim: 'pop' })];
+    renderTextUI(); commit();
+    return true;
+  },
+};
 
 // ---------- speech-to-text ----------
 // Fast mode switch: shown only when the site owner has set it up; the visitor's choice is remembered.
