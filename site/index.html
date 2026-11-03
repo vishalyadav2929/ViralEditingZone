@@ -287,6 +287,18 @@
           <button class="btn btn-sm" id="seriesCaps" type="button">📋 Instagram captions for every part</button>
           <small class="hint">Your own YouTube videos: download one from YouTube Studio, or all of them at once with Google Takeout (takeout.google.com → YouTube → videos).</small>
           <textarea id="seriesOut" rows="8" readonly hidden aria-label="Captions for the series"></textarea>
+          <div class="row field">
+            <div><label for="seriesMode">Numbering</label><select id="seriesMode"><option value="part">PART 1, 2, 3…</option><option value="day">DAY 1, 2, 3…</option></select></div>
+            <label class="check"><input type="checkbox" id="seriesEnd"> End card on each short</label>
+          </div>
+          <div class="field"><input id="seriesEndText" placeholder="End card text (blank = automatic)" aria-label="End card text"></div>
+          <h3 class="more-h">Series look — the same style on every video</h3>
+          <div class="row field">
+            <input id="seriesLookName" placeholder="Look name, e.g. Money Series" aria-label="Series look name">
+            <button class="btn btn-sm" id="seriesLookSave" type="button">💾 Save current look</button>
+          </div>
+          <div class="row" id="seriesLookList"></div>
+          <small class="hint">Save this video's caption style, colours, hook card and numbering once. Then open any other video, come here and tap the look: that video gets the same style.</small>
         </div>
       </div>
       <div class="panel-b" id="paneCaptions" role="tabpanel" hidden>
@@ -357,6 +369,9 @@
       <div class="panel-b" id="paneText" role="tabpanel" hidden>
         <button class="btn btn-primary txt-add" id="txtAdd" type="button">+ Add text</button>
         <div class="auto-cap" id="txtAutoCap"><button class="btn btn-sm" id="txtMakeCaps" type="button">✨ Auto captions from speech</button><small>Auto captions and your own text work together on the same video.</small></div>
+        <h3 class="more-h">Shapes &amp; stickers</h3>
+        <div class="st-grid" id="shapeGrid"></div>
+        <p class="hint">Vector shapes with your words on top. Add one, then change its text, fill (the Box colour), size, place and timing like any text. They show in the preview and the export, on videos and photos.</p>
         <p class="hint">Type anything. It shows exactly as you type it, all at once (not word by word). Press Enter for a new line. Drag it on the video to move it.</p>
         <div class="txt-list" id="txtList"></div>
       </div>
@@ -422,6 +437,13 @@
           <input type="file" id="cubeIn" accept=".cube,text/plain" hidden>
         </div>
         <div class="field"><label for="gMix">Look strength <b id="gMixVal"></b></label><input type="range" id="gMix" min="0" max="100" value="100"></div>
+        <h3 class="more-h">Match a look</h3>
+        <p class="hint">Pick a reference photo whose colours you like — we read them on your device (nothing is uploaded) and suggest the closest look and caption style.</p>
+        <div class="row field file-row">
+          <label class="btn btn-sm" for="matchIn">🖼 Reference image</label>
+          <input type="file" id="matchIn" accept="image/*" hidden>
+        </div>
+        <div id="matchOut"></div>
       </div>
       <div class="panel-b" id="paneAdjust" role="tabpanel" hidden>
         <p class="hint">Fine-tune the picture. Shows in the preview and the export.</p>
@@ -432,6 +454,12 @@
         <div class="field"><label for="gTemp">Temperature <b id="gTempVal"></b></label><input type="range" id="gTemp" min="-100" max="100" value="0"></div>
         <div class="field"><label for="gTint">Tint <b id="gTintVal"></b></label><input type="range" id="gTint" min="-100" max="100" value="0"></div>
         <div class="field"><label for="gVig">Vignette <b id="gVigVal"></b></label><input type="range" id="gVig" min="0" max="100" value="0"></div>
+        <div class="field"><label for="gGrain">Film grain <b id="gGrainVal"></b></label><input type="range" id="gGrain" min="0" max="100" value="0"></div>
+        <div class="field"><label for="gGlow">Soft glow <b id="gGlowVal"></b></label><input type="range" id="gGlow" min="0" max="100" value="0"></div>
+        <h3 class="more-h">Camera move</h3>
+        <div class="field"><label for="camMove">Move</label><select id="camMove"></select></div>
+        <div class="field"><label for="camAmt">Strength <b id="camAmtVal"></b></label><input type="range" id="camAmt" min="20" max="100" value="100"></div>
+        <p class="hint">A slow zoom, pan or crane across the whole video (or the short you're editing). Shows in the preview and the export.</p>
       </div>
       <div class="panel-b" id="paneAI" role="tabpanel" hidden>
         <p class="hint">AI help that works from your captions — hooks &amp; titles, caption polish, a ready-to-post pack, script matching and chat. Bring your own API key; only caption text is ever sent, never your video or audio.</p>
