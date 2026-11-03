@@ -3344,11 +3344,15 @@ const store = {
   get() { try { return JSON.parse(localStorage.getItem('vcz-langs') || 'null'); } catch { return null; } },
   set(v) { try { localStorage.setItem('vcz-langs', JSON.stringify(v)); } catch { /* private mode */ } },
 };
-// Hindi and Hinglish speech is where the small model is far better than the base one, so it is the
-// default on computers. Phones keep Balanced: the 250–400 MB model runs out of memory there.
+// Default is Balanced (whisper-base) on every device: its download is roughly half of the
+// small model's ~209 MB, so the first caption run starts far sooner. The small model is still
+// one tap away in the quality picker ("Best") for users who want maximum Hindi accuracy.
 // A quality the user picks by hand is remembered and always wins over this default.
 const IS_PHONE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
-const defaultQuality = lang => (lang && lang.whisper === 'hindi' && !IS_PHONE ? 'best' : 'balanced');
+const defaultQuality = lang => 'balanced';
+// Keep the downloaded speech model: ask the browser for persistent storage so the model
+// cache is not evicted under storage pressure (the cause of repeat 209 MB downloads).
+if (navigator.storage && navigator.storage.persist) { try { navigator.storage.persist(); } catch { /* best effort */ } }
 const pickedQuality = () => { const s = store.get(); return s && s.qualityPicked ? s.quality : null; };
 const qualityFor = lang => pickedQuality() || defaultQuality(lang);
 ['startModel', 'model'].forEach(id => $(id).addEventListener('change', e => {
