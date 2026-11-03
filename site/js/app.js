@@ -12,12 +12,14 @@ import { mergeCuts, keepRanges, cutAt, keptLength, findSilences, wordGaps } from
 import { Grader, LOOKS, buildLut, parseCube, DEFAULT_GRADE, isGraded } from './grade.js';
 import { mountTimeline, wavePeaks } from './timeline.js';
 import { SOUNDS, soundBuffer, mixWithSfx } from './sfx.js';
-import { TEXT_FONTS, newLayer, drawLayer, layersAt, hitLayer, layout } from './text-layers.js';
+import { TEXT_FONTS, newLayer, drawLayer, layersAt, hitLayer, layout, SHAPES, paintShape } from './text-layers.js';
+import { CAMERA_MOVES, camWindow, camRect } from './camera.js';
+import { matchLook } from './match.js';
 import { findClips, cropRect, ASPECTS, aspectSize } from './clips.js';
 import { TEXT_ANIMS, animState, breakApart, kfSample, upsertKf } from './text-fx.js';
 import { onsetEnvelope, detectBeats, groupBeats, nearestBeat } from './beats.js';
 import { youtubeId, titleCheck } from './grow.js';
-import { seriesOrder, partOf, partLabel, seriesCaptions } from './series.js';
+import { seriesOrder, partOf, partLabel, seriesCaptions, seriesLabel, seriesWord, endCardText } from './series.js';
 import { SIZES, OVERLAYS, THUMBS, photoRect, drawOverlay } from './thumbs.js';
 import { newId, listProjects, getProject, getProjectFile, putProject, putProjectFile, patchProject, deleteProject } from './projects.js';
 import { cloudAvailable, cloudTranscribe } from './cloud-asr.js';
@@ -114,7 +116,7 @@ function tpl() {
 }
 const wordsPerCaption = () => S.o.words || baseTpl().words;
 // What survives a template change or "Reset to template": everything that isn't caption styling.
-const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps, beats: S.o.beats, beatGroup: S.o.beatGroup, snapBeats: S.o.snapBeats });
+const keepO = () => ({ scale: S.o.scale || 1, sfx: S.o.sfx, sfxAuto: S.o.sfxAuto, grade: S.o.grade, texts: S.o.texts, clip: S.o.clip, found: S.o.found, series: S.o.series, trim: S.o.trim, cuts: S.o.cuts, music: S.o.music, speed: S.o.speed, vol: S.o.vol, hideCaps: S.o.hideCaps, beats: S.o.beats, beatGroup: S.o.beatGroup, snapBeats: S.o.snapBeats, cam: S.o.cam });
 
 // ---------- undo / redo ----------
 let hist = [], hIdx = -1;
@@ -326,6 +328,7 @@ function syncControls() {
   $('words').value = wordsPerCaption(); $('wordsVal').textContent = wordsPerCaption();
   syncLangPicker();
   if (typeof syncGradeControls === 'function') syncGradeControls();
+  if (typeof syncCamControls === 'function') syncCamControls();
   $('size').value = Math.round((o.scale || 1) * 100); $('sizeVal').textContent = `${$('size').value}%`;
   $('weight').value = o.weight || '';
   $('fontSel').value = o.font || '';
@@ -506,7 +509,7 @@ function graded(src, w, h, g = grade()) {
   grader.setLut(lutFor(g.look), g.look === 'custom' ? `custom:${S.customLutName}` : g.look);
   return grader.render(src, w, h, g) || src;
 }
-const GSLIDERS = { gExp: ['exp', 100], gCon: ['con', 100], gSat: ['sat', 100], gTemp: ['temp', 100], gTint: ['tint', 100], gVig: ['vig', 100], gMix: ['mix', 100] };
+const GSLIDERS = { gExp: ['exp', 100], gCon: ['con', 100], gSat: ['sat', 100], gTemp: ['temp', 100], gTint: ['tint', 100], gVig: ['vig', 100], gMix: ['mix', 100], gGrain: ['grain', 100], gGlow: ['glow', 100] };
 function setGrade(patch, save = true) {
   S.o.grade = { ...grade(), ...patch };
   syncGradeControls();
@@ -517,7 +520,7 @@ function syncGradeControls() {
   for (const [id, [k, div]] of Object.entries(GSLIDERS)) {
     $(id).value = Math.round(g[k] * div);
     const v = Math.round(g[k] * div);
-    $(id + 'Val').textContent = id === 'gMix' ? `${v}%` : v > 0 ? `+${v}` : String(v);
+    $(id + 'Val').textContent = ['gMix', 'gGrain', 'gGlow'].includes(id) ? `${v}%` : v > 0 ? `+${v}` : String(v);
   }
   document.querySelectorAll('.look').forEach(b => b.classList.toggle('on', b.dataset.look === g.look));
 }
@@ -572,6 +575,55 @@ if (!grader.ok) $('looks').insertAdjacentHTML('beforebegin', '<p class="hint">Th
 renderLooks();
 video.addEventListener('seeked', refreshLookThumbs);
 video.addEventListener('loadeddata', refreshLookThumbs);
+
+// ---------- camera moves (an animated crop window; see camera.js) ----------
+for (const m of CAMERA_MOVES) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; $('camMove').appendChild(o); }
+function syncCamControls() {
+  const c = S.o.cam || {};
+  $('camMove').value = c.move || 'none';
+  const amt = Math.round((c.amt == null ? 1 : c.amt) * 100);
+  $('camAmt').value = amt; $('camAmtVal').textContent = `${amt}%`;
+  $('camAmt').disabled = !c.move || c.move === 'none';
+}
+$('camMove').onchange = e => { S.o.cam = { ...(S.o.cam || {}), move: e.target.value }; syncCamControls(); commit(); };
+$('camAmt').oninput = e => { S.o.cam = { ...(S.o.cam || {}), amt: +e.target.value / 100 }; $('camAmtVal').textContent = `${e.target.value}%`; };
+$('camAmt').onchange = () => commit();
+syncCamControls();
+/** How far through the current range (short, trim, or whole video) time t is — camera progress. */
+function camProgress(t) {
+  const part = S.o.clip || S.o.trim;
+  const a = part ? part.start : 0, b = part ? part.end : (isFinite(video.duration) ? video.duration : 0);
+  return b > a ? Math.min(1, Math.max(0, (t - a) / (b - a))) : 0;
+}
+
+// ---------- match this look (reference photo → closest look + caption style; see match.js) ----------
+$('matchIn').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const w = 96, h = Math.max(1, Math.round(96 * img.naturalHeight / img.naturalWidth));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(img.src);
+    let m;
+    try { m = matchLook(x.getImageData(0, 0, w, h)); } catch { return toast('Couldn’t read that image in this browser.'); }
+    const out = $('matchOut');
+    out.innerHTML = '';
+    const p = document.createElement('p'); p.className = 'hint';
+    p.textContent = `Your reference: ${m.why}. Closest look: ${m.lookName} · Closest caption style: ${m.tplName}.`;
+    const row = document.createElement('div'); row.className = 'row';
+    const b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'btn btn-sm btn-primary'; b1.textContent = `Use look “${m.lookName}”`;
+    b1.onclick = () => { setGrade({ look: m.look }); toast(`Look set to ${m.lookName}. Strength is the “Look strength” slider above.`); };
+    const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'btn btn-sm'; b2.textContent = `Use style “${m.tplName}”`;
+    b2.onclick = () => applyCaptionTpl(m.tpl);
+    row.append(b1, b2);
+    out.append(p, row);
+  };
+  img.onerror = () => toast('That file isn’t an image I can read.');
+  img.src = URL.createObjectURL(f);
+};
 
 // ---------- caption list ----------
 // ---------- timeline ----------
@@ -677,7 +729,7 @@ function renderTextUI() {
   texts().forEach(L => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'txt-item' + (L.id === S.textSel ? ' on' : '');
-    const nm = document.createElement('span'); nm.textContent = L.text.split('\n')[0] || '(empty)'; nm.style.fontFamily = `'${L.font}'`;
+    const nm = document.createElement('span'); nm.textContent = L.text.split('\n')[0] || (L.shape ? (SHAPES.find(s => s.id === L.shape) || {}).name || 'Shape' : '(empty)'); nm.style.fontFamily = `'${L.font}'`;
     b.appendChild(nm);
     if (!S.image) { const t = document.createElement('small'); t.textContent = `${fmtT(L.start)} – ${fmtT(L.end)}`; b.appendChild(t); }
     b.onclick = () => selectText(L.id);
@@ -2353,7 +2405,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
       const res = await exportKeep({
         file: S.file, width: size.w, height: size.h, keep, canvas: xcanvas, bitrate, job,
         draw: (src, t, w, h) => {
-          drawVideo(xctx, size.w, size.h, src, w, h);
+          drawVideo(xctx, size.w, size.h, src, w, h, t);
           if (!S.o.hideCaps) drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
           drawTexts(xctx, size.w, size.h, t);
         },
@@ -2377,7 +2429,7 @@ async function exportVideo({ kind = 'video', size, batch } = {}) {
       const fast = await exportFast({
         file: S.file, width: size.w, height: size.h, start: range.start, end: range.end, canvas: xcanvas, bitrate, job,
         draw: (src, t, w, h) => {
-          drawVideo(xctx, size.w, size.h, src, w, h);
+          drawVideo(xctx, size.w, size.h, src, w, h, t);
           if (!S.o.hideCaps) drawCaption(xctx, size.w, size.h, findChunk(fileChunks(), t), t, t0, opts);
           drawTexts(xctx, size.w, size.h, t);
         },
@@ -2718,10 +2770,18 @@ document.addEventListener('keydown', e => {
 
 // ---------- long video → shorts ----------
 const srcRect = (vw = video.videoWidth, vh = video.videoHeight) => (S.o.clip && vw ? cropRect(vw, vh, ASPECTS[S.o.clip.aspect] || 9 / 16, S.o.clip.x ?? 0.5) : { sx: 0, sy: 0, sw: vw, sh: vh });
-/** Draw a video frame (graded, and cropped to 9:16 for a short) to fill W×H. src: the <video> or a decoded frame. */
-function drawVideo(c2, W, H, src = video, vw = video.videoWidth, vh = video.videoHeight) {
-  if (!S.o.clip) { c2.drawImage(graded(src, W, H), 0, 0, W, H); return; }
-  const r = srcRect(vw, vh), k = W / r.sw;
+/** Draw a video frame (graded, cropped to 9:16 for a short, camera move applied) to fill W×H.
+ *  src: the <video> or a decoded frame. t: the source time being drawn (exports pass it; the
+ *  preview leaves it null and the video's own clock is used). Every render path — preview,
+ *  WebCodecs, fast and cuts exports — comes through here, so a camera move looks the same in all. */
+function drawVideo(c2, W, H, src = video, vw = video.videoWidth, vh = video.videoHeight, t = null) {
+  const cam = S.o.cam;
+  const win = cam && cam.move && cam.move !== 'none'
+    ? camWindow(cam.move, camProgress(t == null ? (src === video ? video.currentTime : 0) : t), cam.amt)
+    : null;
+  if (!win && !S.o.clip) { c2.drawImage(graded(src, W, H), 0, 0, W, H); return; }
+  const base = S.o.clip ? srcRect(vw, vh) : { sx: 0, sy: 0, sw: vw, sh: vh };
+  const r = win ? camRect(base, win) : base, k = W / r.sw;
   const g = graded(src, Math.round(vw * k), Math.round(vh * k));
   if (g === src) c2.drawImage(src, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H);
   else c2.drawImage(g, r.sx * k, r.sy * k, r.sw * k, r.sh * k, 0, 0, W, H);
@@ -2790,10 +2850,14 @@ function applyClip(i) {
   if (!c || S.exporting) return;
   const others = texts().filter(l => !l.hook);
   const prev = S.o.clip || {};
-  const hook = c.title && prev.hook !== false ? [newLayer({ text: c.title, start: c.start, end: Math.min(c.end, c.start + 3.5), x: 0.5, y: 0.18, size: 0.072, font: 'Montserrat', bold: true, color: '#ffffff', stroke: '#000000', strokeW: 0.16, shadow: true, hook: true })] : [];
-  // Series: a "PART n/total" badge for the whole short (removed with the hook when leaving the short).
-  const sr = S.o.series, part = sr && sr.on ? partOf(S.o.found, i, sr.order) : 0;
-  if (part) hook.push(newLayer({ text: partLabel(part, S.o.found.length, sr.name), start: c.start, end: c.end, x: 0.5, y: 0.07, size: 0.042, font: 'Montserrat', bold: true, color: '#111111', bg: '#FFE600', bgOp: 100, shadow: false, oneLine: true, hook: true, part: true }));
+  const sr = S.o.series || {};
+  const hs = sr.hookStyle || {}; // a saved series look can restyle the hook card
+  const hook = c.title && prev.hook !== false ? [newLayer({ text: c.title, start: c.start, end: Math.min(c.end, c.start + 3.5), x: 0.5, y: 0.18, size: 0.072, font: 'Montserrat', bold: true, color: '#ffffff', stroke: '#000000', strokeW: 0.16, shadow: true, ...hs, hook: true })] : [];
+  // Series: a "PART n/total" (or "DAY n/total") badge for the whole short (removed with the hook when leaving the short).
+  const part = sr.on ? partOf(S.o.found, i, sr.order) : 0;
+  if (part) hook.push(newLayer({ text: seriesLabel(part, S.o.found.length, { name: sr.name, mode: sr.mode }), start: c.start, end: c.end, x: 0.5, y: 0.07, size: 0.042, font: 'Montserrat', bold: true, color: '#111111', bg: '#FFE600', bgOp: 100, shadow: false, ...(sr.badgeStyle || {}), oneLine: true, hook: true, part: true }));
+  // Series end card: the last seconds of the short carry the follow / next-part card.
+  if (part && sr.endOn && c.end - c.start >= 6) hook.push(newLayer({ text: sr.endText || endCardText(part, S.o.found.length, { name: sr.name, mode: sr.mode }), start: Math.max(c.start, c.end - 2.5), end: c.end, x: 0.5, y: 0.5, size: 0.055, font: 'Montserrat', bold: true, color: '#ffffff', bg: '#000000', bgOp: 55, shadow: true, hook: true, end: true, anim: 'pop' }));
   S.o.clip = { start: c.start, end: c.end, x: prev.x ?? 0.5, aspect: prev.aspect || '9:16', hook: prev.hook !== false, i, part };
   S.o.texts = [...others, ...hook];
   commit();
@@ -2814,6 +2878,8 @@ function renderClipUI() {
   $('clipSeries').hidden = $('clipAll').hidden;
   const sr = S.o.series || {};
   $('seriesOn').checked = !!sr.on; if (document.activeElement !== $('seriesName')) $('seriesName').value = sr.name || ''; $('seriesOrder').value = sr.order || 'time';
+  $('seriesMode').value = sr.mode || 'part'; $('seriesEnd').checked = !!sr.endOn;
+  if (document.activeElement !== $('seriesEndText')) $('seriesEndText').value = sr.endText || '';
   if (c) {
     $('clipRange').textContent = `${fmt(c.start)}–${fmt(c.end)} · ${Math.round(c.end - c.start)} s`;
     $('clipX').value = Math.round((c.x ?? 0.5) * 100); $('clipXVal').textContent = `${$('clipX').value}%`;
@@ -2919,21 +2985,68 @@ async function reelsFromAll() {
 }
 $('clipAllVideos').onclick = () => reelsFromAll();
 $('clipExit').onclick = () => exitClip();
-const shortTag = range => (S.o.clip && S.o.clip.part ? `part-${S.o.clip.part}` : `short-${Math.round(range.start)}s`);
+const shortTag = range => (S.o.clip && S.o.clip.part ? `${(S.o.series && S.o.series.mode === 'day') ? 'day' : 'part'}-${S.o.clip.part}` : `short-${Math.round(range.start)}s`);
 const setSeries = p => {
-  S.o.series = { on: false, name: '', order: 'time', ...(S.o.series || {}), ...p };
+  S.o.series = { on: false, name: '', order: 'time', mode: 'part', endOn: false, endText: '', ...(S.o.series || {}), ...p };
   if (S.o.clip) applyClip(S.o.clip.i); else { commit(); renderClipUI(); }
 };
 $('seriesOn').onchange = e => setSeries({ on: e.target.checked });
 $('seriesName').onchange = e => setSeries({ name: e.target.value.trim() });
 $('seriesOrder').onchange = e => setSeries({ order: e.target.value });
+$('seriesMode').onchange = e => setSeries({ mode: e.target.value });
+$('seriesEnd').onchange = e => setSeries({ endOn: e.target.checked });
+$('seriesEndText').onchange = e => setSeries({ endText: e.target.value.trim() });
 $('seriesCaps').onclick = () => {
   const sr = S.o.series || {};
-  const caps = seriesCaptions(S.o.found || [], { name: sr.name || '', order: sr.order || 'time' });
-  $('seriesOut').value = caps.map(c => `— Part ${c.part} —\n${c.text}`).join('\n\n');
+  const caps = seriesCaptions(S.o.found || [], { name: sr.name || '', order: sr.order || 'time', mode: sr.mode || 'part' });
+  $('seriesOut').value = caps.map(c => `— ${seriesWord(sr.mode)} ${c.part} —\n${c.text}`).join('\n\n');
   $('seriesOut').hidden = false; $('seriesOut').select();
   if (navigator.clipboard) navigator.clipboard.writeText($('seriesOut').value).then(() => toast('Captions copied. Paste each part’s caption when you post it.'), () => {});
 };
+
+// ---------- series looks: one locked look (style + colours + hook card + numbering), any video ----------
+const SERIES_LOOKS_KEY = 'vcz-series-looks';
+const loadSeriesLooks = () => { try { const v = JSON.parse(localStorage.getItem(SERIES_LOOKS_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+function renderSeriesLooks() {
+  const box = $('seriesLookList'); box.innerHTML = '';
+  for (const p of loadSeriesLooks()) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = `🎬 ${p.name}`;
+    b.title = 'Apply this series look to the current video';
+    b.onclick = () => applySeriesLook(p);
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'chip'; x.textContent = '✕'; x.title = `Delete look “${p.name}”`;
+    x.onclick = () => { try { localStorage.setItem(SERIES_LOOKS_KEY, JSON.stringify(loadSeriesLooks().filter(q => q.name !== p.name))); } catch { /* storage unavailable */ } renderSeriesLooks(); };
+    box.append(b, x);
+  }
+}
+$('seriesLookSave').onclick = () => {
+  const sr = S.o.series || {};
+  const name = $('seriesLookName').value.trim() || sr.name || 'My series';
+  const hook = texts().find(l => l.hook && !l.part), badge = texts().find(l => l.part);
+  const p = {
+    name, tplId: S.tplId, scale: S.o.scale || 1, pos: S.o.pos, posX: S.o.posX, grade: grade(),
+    series: { on: true, name: sr.name || '', order: sr.order || 'time', mode: sr.mode || 'part', endOn: !!sr.endOn, endText: sr.endText || '' },
+    hookStyle: hook ? { font: hook.font, size: hook.size, color: hook.color, stroke: hook.stroke, strokeW: hook.strokeW } : null,
+    badgeStyle: badge ? { color: badge.color, bg: badge.bg } : null,
+  };
+  const list = loadSeriesLooks().filter(q => q.name !== name);
+  list.push(p);
+  try { localStorage.setItem(SERIES_LOOKS_KEY, JSON.stringify(list)); } catch { return toast('Couldn’t save the look on this device.'); }
+  renderSeriesLooks();
+  toast(`Series look “${name}” saved. Open any other video, come to Clips → series, and tap it to give that video the same look.`);
+};
+function applySeriesLook(p) {
+  const t = TEMPLATES.find(x => x.id === p.tplId);
+  if (t) applyCaptionTpl(t); // resets per-style overrides; the rest of the look is set below
+  if (p.scale) S.o.scale = p.scale;
+  if (p.pos != null) S.o.pos = p.pos;
+  if (p.posX != null) S.o.posX = p.posX;
+  if (p.grade) setGrade(p.grade);
+  S.o.series = { ...(S.o.series || {}), ...p.series, on: true, hookStyle: p.hookStyle || undefined, badgeStyle: p.badgeStyle || undefined };
+  if (S.o.clip) applyClip(S.o.clip.i); else { commit(); renderClipUI(); }
+  syncControls();
+  toast(`Series look “${p.name}” applied: same caption style, colours, hook card and numbering.`);
+}
+renderSeriesLooks();
 $('clipExport').onclick = () => openExportDialog();
 $('clipX').addEventListener('input', e => { if (S.o.clip) { S.o.clip.x = e.target.value / 100; $('clipXVal').textContent = `${e.target.value}%`; } });
 $('clipX').addEventListener('change', () => commit());
@@ -3104,6 +3217,43 @@ function addElement(o) {
   for (const e of STICKERS) { const b = document.createElement('button'); b.type = 'button'; b.className = 'st-btn'; b.textContent = e; b.setAttribute('aria-label', `Add ${e}`); b.onclick = () => addElement({ text: e, size: 0.14, shadow: false, x: 0.75, y: 0.25 }); st.appendChild(b); }
   $('thumbReplaceIn').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) replacePhoto(f); };
   document.querySelectorAll('[data-blank]').forEach(b => b.addEventListener('click', () => { openEditor(); blankDesign(b.dataset.blank); }));
+}
+// Vector shapes (stickers): ordinary text layers whose body is a drawn shape (see text-layers.js) —
+// they work on videos and photos alike, with the shape's fill on the Box colour control.
+const SHAPE_DEFAULTS = {
+  burst: { text: '50% OFF', bg: '#E11D48', color: '#ffffff', size: 0.085 },
+  tag: { text: '₹499', bg: '#FFE600', color: '#111111', size: 0.08 },
+  seal: { text: 'NEW', bg: '#7C3AED', color: '#ffffff', size: 0.075 },
+  star: { text: '', bg: '#FFB020', color: '#ffffff', size: 0.09 },
+  heart: { text: '', bg: '#E11D48', color: '#ffffff', size: 0.09 },
+  bubble: { text: 'Wow!', bg: '#ffffff', color: '#111111', size: 0.075 },
+  'arrow-r': { text: '', bg: '#FFE600', color: '#111111', size: 0.09 },
+  'arrow-d': { text: '', bg: '#FFE600', color: '#111111', size: 0.09 },
+  'arrow-c': { text: '', bg: '#22C3F0', color: '#111111', size: 0.09 },
+  ribbon: { text: 'BIG SALE', bg: '#111111', color: '#FFE600', size: 0.07 },
+  ring: { text: '', bg: '#ffffff', color: '#111111', size: 0.09 },
+};
+function addShape(id) {
+  const dur = mediaDur(), t = S.image ? 0 : video.currentTime || 0;
+  let start = t < 0.3 ? 0 : t, end = S.image ? 1 : dur ? Math.min(dur, start + 3) : start + 3;
+  if (dur && end - start < 1) start = Math.max(0, end - 3);
+  const d = SHAPE_DEFAULTS[id] || {};
+  const L = newLayer({ shape: id, text: d.text || '', start: +start.toFixed(2), end: +end.toFixed(2), x: 0.5, y: 0.3 + (texts().length % 5) * 0.1,
+    size: d.size || 0.08, font: 'Montserrat', bold: true, color: d.color || '#ffffff', bg: d.bg || '#E11D48', bgOp: 100, shadow: true });
+  S.o.texts = [...texts(), L];
+  commit(); selectText(L.id);
+  if (S.image) showLTab('thumb');
+}
+{
+  const box = $('shapeGrid');
+  for (const sh of SHAPES) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'st-btn shape-btn'; b.title = `Add ${sh.name}`; b.setAttribute('aria-label', `Add ${sh.name}`);
+    const c = document.createElement('canvas'); c.width = 52; c.height = Math.max(20, Math.round(52 / sh.ar));
+    const x = c.getContext('2d'); x.fillStyle = '#a78bfa'; paintShape(x, 3, 3, 46, c.height - 6, sh.id);
+    b.appendChild(c);
+    b.onclick = () => addShape(sh.id);
+    box.appendChild(b);
+  }
 }
 async function applyThumb(id) {
   const tp = THUMBS.find(x => x.id === id); if (!tp) return;

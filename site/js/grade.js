@@ -38,6 +38,23 @@ export const LOOKS = {
   } },
   vivid: { name: 'Vivid Pop', fn: (r, g, b) => { [r, g, b] = sat(r, g, b, 1.38); return [scurve(r, 0.25), scurve(g, 0.25), scurve(b, 0.25)]; } },
   bw: { name: 'B&W', fn: (r, g, b) => { const l = scurve(lum(r, g, b), 0.4); return [l, l, l]; } },
+  noir: { name: 'Noir', fn: (r, g, b) => { const l = scurve(lum(r, g, b), 0.6); return [l * 0.97, l, l * 1.05]; } },
+  matte: { name: 'Matte Fade', fn: (r, g, b) => {
+    [r, g, b] = sat(r, g, b, 0.85);
+    const fade = x => x * 0.8 + 0.13; // lifted blacks, lowered whites: the faded-film look
+    return [fade(r) * 1.02, fade(g), fade(b) * 0.97];
+  } },
+  sunset: { name: 'Sunset Glow', fn: (r, g, b) => {
+    const l = lum(r, g, b);
+    [r, g, b] = [r + 0.17 * l + 0.02, g + 0.05 * l, b - 0.13 * l];
+    [r, g, b] = sat(r, g, b, 1.14);
+    return [scurve(r, 0.22), scurve(g, 0.22), scurve(b, 0.22)];
+  } },
+  pastel: { name: 'Pastel', fn: (r, g, b) => {
+    [r, g, b] = sat(r, g, b, 0.8);
+    const soft = x => scurve(x, -0.18) * 0.92 + 0.07;
+    return [soft(r), soft(g), soft(b)];
+  } },
 };
 
 /** A size³ RGB LUT (red changes fastest, like .cube files) as Uint8Array. */
@@ -73,8 +90,8 @@ export function parseCube(text) {
   return { size, data, title };
 }
 
-export const DEFAULT_GRADE = { look: 'none', mix: 1, exp: 0, con: 0, sat: 0, temp: 0, tint: 0, vig: 0 };
-export const isGraded = g => !!g && (g.look !== 'none' || ['exp', 'con', 'sat', 'temp', 'tint', 'vig'].some(k => g[k]));
+export const DEFAULT_GRADE = { look: 'none', mix: 1, exp: 0, con: 0, sat: 0, temp: 0, tint: 0, vig: 0, grain: 0, glow: 0 };
+export const isGraded = g => !!g && (g.look !== 'none' || ['exp', 'con', 'sat', 'temp', 'tint', 'vig', 'grain', 'glow'].some(k => g[k]));
 
 const VS = `#version 300 es
 in vec2 p; out vec2 v;
@@ -82,7 +99,7 @@ void main() { v = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }`;
 const FS = `#version 300 es
 precision highp float; precision highp sampler3D;
 uniform sampler2D img; uniform sampler3D lut;
-uniform float lutSize, mixAmt, exposure, contrast, saturation, temperature, tint, vignette, hasLut;
+uniform float lutSize, mixAmt, exposure, contrast, saturation, temperature, tint, vignette, hasLut, grain, glow, seed;
 in vec2 v; out vec4 o;
 void main() {
   vec3 c = texture(img, v).rgb;
@@ -92,13 +109,26 @@ void main() {
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, 1.0 + saturation);
   c = clamp(c, 0.0, 1.0);
+  if (glow > 0.001) {
+    // Soft glow: a few wide taps of the bright parts, added back like a bloom pass.
+    float r = 0.004 + glow * 0.012;
+    vec3 blur = texture(img, v + vec2(r, 0.0)).rgb + texture(img, v - vec2(r, 0.0)).rgb
+      + texture(img, v + vec2(0.0, r)).rgb + texture(img, v - vec2(0.0, r)).rgb + c;
+    vec3 hi = max(blur / 5.0 - 0.5, 0.0);
+    c += hi * glow * 1.5;
+  }
   if (hasLut > 0.5) {
     vec3 g = texture(lut, c * ((lutSize - 1.0) / lutSize) + 0.5 / lutSize).rgb;
     c = mix(c, g, mixAmt);
   }
   float d = distance(v, vec2(0.5));
   c *= 1.0 - vignette * smoothstep(0.25, 0.8, d);
-  o = vec4(c, 1.0);
+  if (grain > 0.001) {
+    // Film grain: hash noise, reseeded every frame so it shimmers like real grain.
+    float n = fract(sin(dot(v * (seed + 17.0), vec2(12.9898, 78.233))) * 43758.5453);
+    c += (n - 0.5) * grain * 0.16;
+  }
+  o = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
 /** GPU grader. render(source, w, h) returns a canvas with the graded frame (or null if WebGL2 is missing). */
@@ -114,7 +144,8 @@ export class Grader {
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    this.u = Object.fromEntries(['img', 'lut', 'lutSize', 'mixAmt', 'exposure', 'contrast', 'saturation', 'temperature', 'tint', 'vignette', 'hasLut'].map(n => [n, gl.getUniformLocation(prog, n)]));
+    this.u = Object.fromEntries(['img', 'lut', 'lutSize', 'mixAmt', 'exposure', 'contrast', 'saturation', 'temperature', 'tint', 'vignette', 'hasLut', 'grain', 'glow', 'seed'].map(n => [n, gl.getUniformLocation(prog, n)]));
+    this.frame = 0;
     this.tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex);
     for (const [k, val] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, val);
@@ -148,6 +179,7 @@ export class Grader {
     gl.uniform1f(u.hasLut, this.lutSize ? 1 : 0); gl.uniform1f(u.lutSize, this.lutSize || 1);
     gl.uniform1f(u.mixAmt, g.mix ?? 1); gl.uniform1f(u.exposure, g.exp || 0); gl.uniform1f(u.contrast, g.con || 0);
     gl.uniform1f(u.saturation, g.sat || 0); gl.uniform1f(u.temperature, g.temp || 0); gl.uniform1f(u.tint, g.tint || 0); gl.uniform1f(u.vignette, g.vig || 0);
+    gl.uniform1f(u.grain, g.grain || 0); gl.uniform1f(u.glow, g.glow || 0); gl.uniform1f(u.seed, (this.frame = (this.frame + 1) % 89));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return this.canvas;
   }
