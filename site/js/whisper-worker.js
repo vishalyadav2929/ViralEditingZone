@@ -72,6 +72,12 @@ async function transcribe({ audio, quality, language, task, debugFailWord }) {
     const base = { task: task || 'transcribe' };
     if (language) base.language = language;
     const runWindow = async sub => {
+      // Heartbeat while a window is being transcribed: a single window can take minutes on a
+      // slow phone, and the app kills a worker that stays silent too long — which used to cut
+      // captions off partway through long videos. (If the inference thread is fully busy the
+      // pings simply arrive late; the app's silence limit has room for that too.)
+      const ping = setInterval(() => { try { post({ type: 'ping' }); } catch { /* worker closing */ } }, 15000);
+      try {
       while (!wordLevelBroken) {
         try {
           if (debugFailWord && debugFailWord.includes(loadedName)) throw new Error('test: no word timing'); // tests only
@@ -93,6 +99,7 @@ async function transcribe({ audio, quality, language, task, debugFailWord }) {
       }
       const out = await asr(sub, { ...base, return_timestamps: true });
       return { chunks: out.chunks, level: 'segment' };
+      } finally { clearInterval(ping); }
     };
     post({ type: 'status', text: 'Cleaning up background noise…' });
     const clean = preprocess(audio);

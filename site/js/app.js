@@ -1801,7 +1801,12 @@ async function transcribe({ lang, task, quality }, ui) {
   }
 }
 // If the worker goes silent this long, the phone most likely killed it (out of memory).
-const WORKER_SILENCE_MS = 150000;
+// 10 minutes, not 150 s: on a slow phone ONE 29-second part can legitimately take several
+// minutes to transcribe, and the worker posts nothing while a part is running — the old
+// limit killed healthy generations mid-video, so captions stopped partway instead of
+// running from 0:00 to the end of the video. The worker also sends heartbeat pings
+// while it works (see whisper-worker.js), which reset this timer whenever they arrive.
+const WORKER_SILENCE_MS = 600000;
 // On the graphics chip (WebGPU) the first part takes a few seconds; some laptop chips stall instead.
 const GPU_STALL_MS = 40000;
 let noGpuMem = false;
@@ -1872,7 +1877,10 @@ function applyTranscript(res, captionMode) {
 }
 function describeResult(res) {
   const n = res.words.length;
-  return `Done: ${n} words in ${S.segments.length} captions${res.cloud ? ' (⚡ Fast mode)' : ''}.` +
+  const lastEnd = S.segments.length ? S.segments[S.segments.length - 1].end : 0;
+  const dur = isFinite(video.duration) ? video.duration : 0;
+  const cover = S.segments.length ? ` Captions cover the whole video: 0:00 to ${fmt(lastEnd)}${dur ? ` of ${fmt(dur)}` : ''}.` : '';
+  return `Done: ${n} words in ${S.segments.length} captions${res.cloud ? ' (⚡ Fast mode)' : ''}.${cover}` +
     (res.level === 'segment' ? ` Word-by-word timing wasn’t available on this device${res.wordError ? ` (${res.wordError})` : ''}, so it’s estimated from the voice (marked “est.”).` : ' Word timing comes from the speech model.') +
     ' Check the text, pick a template, then export.';
 }
